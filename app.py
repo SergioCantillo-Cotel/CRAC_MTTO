@@ -5,7 +5,7 @@ import pandas as pd
 from utils.data_processing import load_and_process_data
 from utils.model import build_rsf_model
 from utils.style_loader import load_custom_css
-from utils.bigquery_connector import bigquery_auth, read_bq_alarms_safe, autorefresh
+from utils.bigquery_connector import bigquery_auth, read_bq_alarms_safe, autorefresh, completar_seriales_faltantes
 from viz.components import render_sidebar, render_tab1, render_tab2, render_tab3
 
 load_custom_css()
@@ -42,6 +42,7 @@ def main():
     # -----------------------
     # Data processing
     # -----------------------
+    df_raw = completar_seriales_faltantes(df_raw)
     df = load_and_process_data(df_raw)
 
     # -----------------------
