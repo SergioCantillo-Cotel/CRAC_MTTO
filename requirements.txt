@@ -6,3 +6,6 @@ scikit_learn==1.7.2
 scikit_survival==0.25.0
 streamlit==1.47.1
 streamlit_autorefresh==1.0.1
+google-cloud-bigquery
+
+
