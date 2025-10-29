@@ -1,14 +1,126 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
 
+/* Estilos para el sidebar con gradiente */
+section[data-testid="stSidebar"] > div {
+    background-image: linear-gradient(135deg, #133839 0%, #fcfdfd 100%) !important;
+    background-attachment: fixed;
+}
+
+/* Asegurar que el contenido del sidebar tenga buen contraste */
+section[data-testid="stSidebar"] .stMarkdown,
+section[data-testid="stSidebar"] .stTextInput label,
+section[data-testid="stSidebar"] .stButton button,
+section[data-testid="stSidebar"] .stMultiSelect label,
+section[data-testid="stSidebar"] .stSlider label,
+section[data-testid="stSidebar"] .stCheckbox label,
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] h4,
+section[data-testid="stSidebar"] h5,
+section[data-testid="stSidebar"] h6 {
+    color: white !important;
+}
+
+section[data-testid="stSidebar"] .st-emotion-cache-16idsys {
+    padding-top: 10px !important;
+    margin-top: 10px !important;
+}
+
+section[data-testid="stSidebar"] .st-emotion-cache-16idsys p {
+    color: white !important;
+    font-weight: 600;
+    margin-bottom: 20px !important;
+}
+
+/* Mejorar contraste de los inputs en el sidebar */
+section[data-testid="stSidebar"] .stTextInput input {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    color: #333 !important;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+section[data-testid="stSidebar"] .stTextInput input:focus {
+    background-color: white !important;
+    border: 1px solid #667eea;
+}
+
+/* Botones en sidebar */
+section[data-testid="stSidebar"] .stButton button {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    backdrop-filter: blur(10px);
+}
+
+section[data-testid="stSidebar"] .stButton button:hover {
+    background-color: rgba(255, 255, 255, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Multi-select en sidebar */
+section[data-testid="stSidebar"] .stMultiSelect div div {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Slider en sidebar */
+section[data-testid="stSidebar"] .stSlider div {
+    color: white !important;
+}
+
+/* Checkbox en sidebar */
+section[data-testid="stSidebar"] .stCheckbox span {
+    color: white !important;
+}
+
+/* Expander en sidebar */
+section[data-testid="stSidebar"] .streamlit-expanderHeader {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Header del sidebar */
+section[data-testid="stSidebar"] .st-emotion-cache-16idsys p {
+    color: white !important;
+    font-weight: 600;
+}
+
+/* Contenedor de login en sidebar */
+.sidebar-login {
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-login h3 {
+    color: white !important;
+    margin-bottom: 0.5rem;
+}
+
+.sidebar-login p {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.login-form-container {
+    margin-top: 0.2rem;
+}
+
+
 body, h1, h2, h3, h4, h5, h6, p, .stDataFrame, .stButton>button, .stMetricValue {
     font-family: 'Poppins' !important;
 }
 
 .block-container {
-    padding-top: 0.2rem;
+    padding-top: 1rem !important;  /* Aumentamos el padding superior */
     padding-left: 1rem;
     padding-right: 1rem;
 }
+
 
 [data-testid="stMetric"] {
     width: fit-content!important;
@@ -55,6 +167,17 @@ div[data-testid="stMetric"] > div:nth-child(2) {
 label[data-testid="stMetricLabel"] p{
     font-size: 1.6em !important;
     font-family: 'Poppins';
+}
+
+/* Multi-select en sidebar */
+section[data-testid="stSidebar"] .stMultiSelect div div {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border-radius: 8px !important;
+}
+
+/* Slider en sidebar */
+section[data-testid="stSidebar"] .stSlider div {
+    color: white !important;
 }
 
 div[data-testid="metric-container"] > label[data-testid="stMetricDelta"] > div {

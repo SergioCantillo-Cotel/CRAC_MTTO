@@ -1,11 +1,9 @@
 numpy==2.3.4
 pandas==2.3.3
+Pillow==12.0.0
 plotly==6.1.2
 protobuf==6.33.0
 scikit_learn==1.7.2
 scikit_survival==0.25.0
-streamlit==1.47.1
+streamlit==1.50.0
 streamlit_autorefresh==1.0.1
-google-cloud-bigquery
-
-

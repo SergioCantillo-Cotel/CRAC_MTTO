@@ -126,7 +126,7 @@ def read_bq_alarms_safe(credentials, days_back=180):
         return df
             
     except Exception as e:
-        st.error(f"Error en consulta BigQuery: {str(e)}")
+        st.error(f"Error al consultar los datos: {str(e)}")
         return pd.DataFrame()
 
 

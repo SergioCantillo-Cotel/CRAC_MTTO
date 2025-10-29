@@ -169,7 +169,7 @@ def _render_summary_col(rsf_model, intervals, maintenance_data, available_device
         st.info("Esperando datos del modelo")
 
 def render_tab2(rsf_model, intervals, plot_devices, risk_threshold):
-
+    """Renderiza la pestaña de proyección de riesgo"""
     top_n = st.slider("📊 Número de equipos a mostrar",
                       min_value=0,
                       max_value=len(plot_devices),
@@ -177,7 +177,6 @@ def render_tab2(rsf_model, intervals, plot_devices, risk_threshold):
 
     plot_devices = plot_devices[:top_n]
 
-    """Renderiza la pestaña de proyección de riesgo"""
     if rsf_model is not None and len(plot_devices) > 0:
         with st.spinner("Calculando proyecciones de riesgo..."):
             fig = predict_failure_risk_curves(rsf_model, intervals, plot_devices,
@@ -203,11 +202,18 @@ def render_tab2(rsf_model, intervals, plot_devices, risk_threshold):
         else:
             st.info("No hay dispositivos para mostrar con los filtros actuales")
 
-def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None):
+def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None, 
+                last_maintenance_dict=None, client_dict=None):
     """Renderiza la pestaña de recomendaciones de mantenimiento USANDO DISPOSITIVOS FILTRADOS"""
     # Si no se proporcionan dispositivos disponibles, usar todos
     if available_devices is None:
         available_devices = sorted(df['Dispositivo'].unique())
+    
+    # Inicializar diccionarios si no se proporcionan
+    if last_maintenance_dict is None:
+        last_maintenance_dict = {}
+    if client_dict is None:
+        client_dict = {}
     
     if rsf_model is not None and len(intervals) > 0:
         # Recalcular maintenance_data SOLO para los dispositivos disponibles (filtrados)
@@ -258,7 +264,8 @@ def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None
                 planificar_df = maintenance_df_positive[maintenance_df_positive['tiempo_hasta_umbral_dias'] >= 30]
                 planificar_df = planificar_df.sort_values(['tiempo_hasta_umbral', 'riesgo_actual'], ascending=[True, False])
 
-                _render_maintenance_sections(critico_df, alto_df, planificar_df, df)
+                _render_maintenance_sections(critico_df, alto_df, planificar_df, df, 
+                                           last_maintenance_dict, client_dict)
             else:
                 st.success("✅ No hay equipos que requieran mantenimiento inmediato")
         else:
@@ -266,8 +273,76 @@ def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None
     else:
         st.info("El modelo predictivo proporcionará recomendaciones una vez entrenado")
 
-def _render_maintenance_sections(critico_df, alto_df, planificar_df, df):
-    """Renderiza las secciones de mantenimiento - SIEMPRE mostrar desplegable de fallas"""
+def _render_maintenance_sections(critico_df, alto_df, planificar_df, df, 
+                               last_maintenance_dict, client_dict):
+    """Renderiza las secciones de mantenimiento con información de último mantenimiento y cliente"""
+    
+    def format_maintenance_date(date):
+        """Formatea la fecha de mantenimiento de manera amigable"""
+        if pd.isna(date) or date is None:
+            return "Nunca"
+        
+        try:
+            # Si es una fecha reciente (últimos 30 días), mostrar "hace X días"
+            from datetime import datetime
+            days_ago = (datetime.now().date() - date.date()).days
+            
+            if days_ago == 0:
+                return "Hoy"
+            elif days_ago == 1:
+                return "Ayer"
+            elif days_ago < 7:
+                return f"Hace {days_ago} días"
+            elif days_ago < 30:
+                weeks = days_ago // 7
+                return f"Hace {weeks} semana{'s' if weeks > 1 else ''}"
+            else:
+                return date.strftime("%d/%m/%Y")
+                
+        except:
+            return date.strftime("%d/%m/%Y") if hasattr(date, 'strftime') else str(date)
+    
+    def render_device_card(row, device_failures, last_maintenance_dict, client_dict, color_scheme):
+        """Renderiza una tarjeta individual de dispositivo"""
+        # Obtener información de mantenimiento
+        serial = row['serial']
+        last_maintenance = last_maintenance_dict.get(serial)
+        client = client_dict.get(serial, "No especificado")
+        
+        maintenance_text = format_maintenance_date(last_maintenance)
+        
+        # Configurar colores según la categoría
+        colors = {
+            'critico': {'bg': '#fef2f2', 'border': '#ef4444', 'text': '#dc2626'},
+            'alto': {'bg': '#fffbeb', 'border': '#f59e0b', 'text': '#d97706'},
+            'planificar': {'bg': '#f0f9ff', 'border': '#0ea5e9', 'text': '#0369a1'}
+        }
+        
+        color_set = colors.get(color_scheme, colors['planificar'])
+        
+        st.markdown(f"""
+        <div style='background-color: {color_set['bg']}; border-left: 4px solid {color_set['border']}; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+            <h4 style='margin: 0; color: {color_set['text']};'>{row['equipo']}</h4>
+            <p style='margin: 5px 0; font-size: 14px;'>
+            <strong>🔢 Serial: {row['serial']}</strong><br>
+            <strong>🏢 Cliente: {client}</strong><br>
+            <strong>🔧 Último mantenimiento: {maintenance_text}</strong><br>
+            <strong>⏱️ {hours_to_days_hours(row['tiempo_hasta_umbral'])}</strong> hasta umbral<br>
+            <strong>📊 {row['riesgo_actual']:.1f}%</strong> riesgo actual<br>
+            <strong>🕐 {hours_to_days_hours(row['tiempo_transcurrido'])}</strong> transcurrido
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # SIEMPRE mostrar el desplegable de fallas (aunque esté vacío)
+        with st.expander("🔍 Fallas detectadas", expanded=False):
+            if device_failures:
+                for failure in device_failures:
+                    st.write(f"• {failure}")
+            else:
+                st.info("No se detectaron fallas comunes específicas")
+    
+    # Renderizar sección CRÍTICO
     if len(critico_df) > 0:
         with st.expander(f"🚨 **MANTENIMIENTO INMEDIATO REQUERIDO** ({len(critico_df)} equipos)", expanded=True):
             n_criticos = len(critico_df)
@@ -276,28 +351,9 @@ def _render_maintenance_sections(critico_df, alto_df, planificar_df, df):
             for idx, (_, row) in enumerate(critico_df.iterrows()):
                 with crit_cols[idx % len(crit_cols)]:
                     device_failures = get_device_failures(df, row['equipo'])
+                    render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'critico')
 
-                    with st.container():
-                        st.markdown(f"""
-                        <div style='background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                            <h4 style='margin: 0; color: #dc2626;'>{row['equipo']}</h4>
-                            <p style='margin: 5px 0; font-size: 14px;'>
-                            <strong>🔢 Serial: {row['serial']}</strong><br>
-                            <strong>⏱️ {hours_to_days_hours(row['tiempo_hasta_umbral'])}</strong> hasta umbral<br>
-                            <strong>📊 {row['riesgo_actual']:.1f}%</strong> riesgo actual<br>
-                            <strong>🕐 {hours_to_days_hours(row['tiempo_transcurrido'])}</strong> transcurrido
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    # SIEMPRE mostrar el desplegable de fallas (aunque esté vacío)
-                    with st.expander("🔍 Fallas detectadas", expanded=False):
-                        if device_failures:
-                            for failure in device_failures:
-                                st.write(f"• {failure}")
-                        else:
-                            st.info("No se detectaron fallas comunes específicas")
-
+    # Renderizar sección ALTO
     if len(alto_df) > 0:
         with st.expander(f"⚠️ **MANTENIMIENTO PRÓXIMO** ({len(alto_df)} equipos)", expanded=True):
             n_altos = len(alto_df)
@@ -306,28 +362,9 @@ def _render_maintenance_sections(critico_df, alto_df, planificar_df, df):
             for idx, (_, row) in enumerate(alto_df.iterrows()):
                 with alto_cols[idx % len(alto_cols)]:
                     device_failures = get_device_failures(df, row['equipo'])
+                    render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'alto')
 
-                    with st.container():
-                        st.markdown(f"""
-                        <div style='background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                            <h4 style='margin: 0; color: #d97706;'>{row['equipo']}</h4>
-                            <p style='margin: 5px 0; font-size: 14px;'>
-                            <strong>🔢 Serial: {row['serial']}</strong><br>
-                            <strong>⏱️ {hours_to_days_hours(row['tiempo_hasta_umbral'])}</strong> hasta umbral<br>
-                            <strong>📊 {row['riesgo_actual']:.1f}%</strong> riesgo actual<br>
-                            <strong>🕐 {hours_to_days_hours(row['tiempo_transcurrido'])}</strong> transcurrido
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    # SIEMPRE mostrar el desplegable de fallas (aunque esté vacío)
-                    with st.expander("🔍 Fallas detectadas", expanded=False):
-                        if device_failures:
-                            for failure in device_failures:
-                                st.write(f"• {failure}")
-                        else:
-                            st.info("No se detectaron fallas comunes específicas")
-
+    # Renderizar sección PLANIFICAR
     if len(planificar_df) > 0:
         with st.expander(f"📅 **MANTENIMIENTO PLANIFICADO** ({len(planificar_df)} equipos)", expanded=True):
             n_planificar = len(planificar_df)
@@ -336,24 +373,11 @@ def _render_maintenance_sections(critico_df, alto_df, planificar_df, df):
             for idx, (_, row) in enumerate(planificar_df.iterrows()):
                 with plan_cols[idx % len(plan_cols)]:
                     device_failures = get_device_failures(df, row['equipo'])
+                    render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'planificar')
 
-                    with st.container():
-                        st.markdown(f"""
-                        <div style='background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                            <h4 style='margin: 0; color: #0369a1;'>{row['equipo']}</h4>
-                            <p style='margin: 5px 0; font-size: 14px;'>
-                            <strong>🔢 Serial: {row['serial']}</strong><br>
-                            <strong>⏱️ {hours_to_days_hours(row['tiempo_hasta_umbral'])}</strong> hasta umbral<br>
-                            <strong>📊 {row['riesgo_actual']:.1f}%</strong> riesgo actual<br>
-                            <strong>🕐 {hours_to_days_hours(row['tiempo_transcurrido'])}</strong> transcurrido
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    # SIEMPRE mostrar el desplegable de fallas (aunque esté vacío)
-                    with st.expander("🔍 Fallas detectadas", expanded=False):
-                        if device_failures:
-                            for failure in device_failures:
-                                st.write(f"• {failure}")
-                        else:
-                            st.info("No se detectaron fallas comunes específicas")
+def render_user_info():
+    """Renderiza información del usuario en el sidebar"""
+    if st.session_state.get('authenticated', False):
+        st.sidebar.markdown("---")
+        st.sidebar.markdown(f"**👤 Usuario:** {st.session_state.get('username', 'N/A')}")
+        st.sidebar.markdown(f"**🎯 Rol:** {st.session_state.get('user_role', 'N/A')}")
