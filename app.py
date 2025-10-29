@@ -124,7 +124,7 @@ def render_authenticated_interface():
         )
 
     st.markdown("---")
-    last_update = (pd.Timestamp.now() - pd.Timedelta(hours=5)).strftime("%Y-%m-%d %H:%M:%S")
+    last_update = pd.Timestamp.now(tz='UTC-05:00').strftime("%Y-%m-%d %H:%M:%S")
     st.markdown(f"<div style='text-align: center; color: #666; font-size: 10px; padding: 5px;'>Última actualización: {last_update}</div>",
                 unsafe_allow_html=True)
 
@@ -148,4 +148,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
