@@ -124,9 +124,8 @@ def render_tab1(rsf_model, intervals, features, df, available_devices, risk_thre
                 fig_bar.update_layout(
                     paper_bgcolor='#0D2A2B',
                     height=360,
-                    
                     title={
-                        'text': f"🔧 Top {len(available_devices)} Equipos con Prioridad de Mantenimiento",
+                        'text': f"🔧 Top {len(available_devices) if len(available_devices) <= 5 else 5} Equipos con Prioridad de Mantenimiento",
                         'x': 0.5, 'font': {'color':"#ffffff"},
                         'xanchor': 'center',
                     },
@@ -430,4 +429,5 @@ def render_footer():
         f"Última actualización: {last_update}"
         f"</div>", 
         unsafe_allow_html=True
+
     )
