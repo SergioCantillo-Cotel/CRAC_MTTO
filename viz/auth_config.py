@@ -6,16 +6,22 @@ import hmac
 # Configuración de usuarios (en producción, usa una base de datos)
 USERS = {
     "admin": {
-        "password": "admin123",  # Cambia esta contraseña
-        "name": "Admin",
+        "password": "admin123!",  # Cambia esta contraseña
+        "name": "",
         "role": "Administrador",
         "cliente": "Todos los clientes"
     },
-    "operador": {
-        "password": "operador123",  # Cambia esta contraseña
-        "name": "Operador",
+    "EAFIT": {
+        "password": "EAFIT1!",  # Cambia esta contraseña
+        "name": "EAFIT",
         "role": "Operador",
-        "cliente": "Cliente Principal"
+        "cliente": "UNIVERSIDAD EAFIT"
+    },
+    "UNICAUCA": {
+        "password": "UCA1!",  # Cambia esta contraseña
+        "name": "UNICAUCA",
+        "role": "Operador",
+        "cliente": "UNIVERSIDAD DEL CAUCA"
     }
 }
 
@@ -58,13 +64,13 @@ def render_sidebar_login():
     
     st.sidebar.markdown('<div class="login-form-container">', unsafe_allow_html=True)
     with st.sidebar.form("sidebar_login_form"):
-        username = st.text_input("👤 **Usuario**", placeholder="Ingresa tu usuario")
-        password = st.text_input("🔒 **Contraseña**", type="password", placeholder="Ingresa tu contraseña")
+        username = st.text_input("👤 **Usuario**", placeholder="Ingresa tu usuario", key="input-user")
+        password = st.text_input("🔒 **Contraseña**", type="password", placeholder="Ingresa tu contraseña",key='input-pass')
 
         # Checkbox de "Recordar contraseña" (solo visual por ahora)
         #remember_me = st.checkbox("Recordar contraseña")
         
-        submit = st.form_submit_button("**Ingresar**", use_container_width=True)
+        submit = st.form_submit_button("**Ingresar**", use_container_width=True, key="login_btn")
         
         if submit:
             if verify_login(username, password):
@@ -73,7 +79,7 @@ def render_sidebar_login():
                 st.session_state.user_info = USERS[username]
                 st.rerun()
             else:
-                st.error("❌ Usuario o contraseña incorrectos")
+                st.toast("Usuario o contraseña incorrectos",icon='❌',duration=4)
     
     st.sidebar.markdown("</div>", unsafe_allow_html=True)
     st.sidebar.markdown("</div>", unsafe_allow_html=True)
@@ -84,7 +90,7 @@ def render_sidebar_user_info():
         user_info = st.session_state.user_info
         
         # Expander con el saludo como título y el logout dentro
-        with st.sidebar.expander(f"👋 Hola, {st.session_state.username}", expanded=False):
+        with st.sidebar.expander(f"👋 Hola, **{st.session_state.username}**", expanded=False):
             st.markdown(f"**🎯 Rol:** {user_info['role']}")
             st.markdown(f"**🏢 Cliente:** {user_info['cliente']}")
             

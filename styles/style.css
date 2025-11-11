@@ -1,18 +1,27 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
-
-/* Estilos para el sidebar con gradiente */
-section[data-testid="stSidebar"] > div {
-    background-image: linear-gradient(135deg, #133839 0%, #fcfdfd 100%) !important;
-    background-attachment: fixed;
+/* ===== RESET Y CONFIGURACIÓN GENERAL ===== */
+body, h1, h2, h3, h4, h5, h6, p, .stDataFrame, .stButton>button, .stMetricValue {
+    font-family: 'Manrope' !important;
+    color: #FFFFFF;
 }
 
-/* Asegurar que el contenido del sidebar tenga buen contraste */
+/* Reducir espacio superior del título principal */
+.block-container {
+    padding-top: 1rem !important;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* ===== SIDEBAR ESTILOS ===== */
+section[data-testid="stSidebar"] > div {
+    background-color: #0D2A2B;
+}
+
+/* Texto del sidebar en blanco */
 section[data-testid="stSidebar"] .stMarkdown,
 section[data-testid="stSidebar"] .stTextInput label,
 section[data-testid="stSidebar"] .stButton button,
 section[data-testid="stSidebar"] .stMultiSelect label,
 section[data-testid="stSidebar"] .stSlider label,
-section[data-testid="stSidebar"] .stCheckbox label,
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3,
@@ -33,11 +42,11 @@ section[data-testid="stSidebar"] .st-emotion-cache-16idsys p {
     margin-bottom: 20px !important;
 }
 
-/* Mejorar contraste de los inputs en el sidebar */
+/* Inputs del sidebar */
 section[data-testid="stSidebar"] .stTextInput input {
     background-color: rgba(255, 255, 255, 0.9) !important;
     color: #333 !important;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.8);
 }
 
 section[data-testid="stSidebar"] .stTextInput input:focus {
@@ -45,54 +54,157 @@ section[data-testid="stSidebar"] .stTextInput input:focus {
     border: 1px solid #667eea;
 }
 
-/* Botones en sidebar */
+/* Multi-select del sidebar */
+section[data-testid="stSidebar"] .stMultiSelect div div {
+    background-color: #FFFFFF !important;
+    border-radius: 8px !important;
+    color: #000000;
+}
+
+section[data-baseweb="popover"] div div ul{
+    background-color: #FFFFFF !important;
+    border-radius: 8px !important;
+    color: #000000;
+}
+
+
+/* ===== BOTONES ===== */
+/* Botones en sidebar - COLOR #FFED00 */
 section[data-testid="stSidebar"] .stButton button {
-    background-color: rgba(255, 255, 255, 0.2) !important;
-    color: white !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background-color: #FFED00 !important;
+    color: #000000 !important;
+    border: 1px solid #FFED00 !important;
     backdrop-filter: blur(10px);
 }
 
 section[data-testid="stSidebar"] .stButton button:hover {
-    background-color: rgba(255, 255, 255, 0.3) !important;
-    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    background-color: #E6D600 !important;
+    border: 1px solid #E6D600 !important;
+    color: #000000 !important;
 }
 
-/* Multi-select en sidebar */
-section[data-testid="stSidebar"] .stMultiSelect div div {
-    background-color: rgba(255, 255, 255, 0.9) !important;
+/* Botones principales */
+.stButton > button {
+    background-color: #FFED00 !important;
+    border: none;
+    padding: 0.6em 1.2em;
+    border-radius: 8px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+    width: 100%;
+    margin: auto;
+    color: #000000 !important;
 }
 
-/* Slider en sidebar */
+.stButton > button:hover {
+    background-color: #E6D600 !important;
+    color: #000000 !important;
+}
+
+/* Botón de login específico */
+.st-key-btn_login, 
+div[data-testid="stFormSubmitButton"] > button {
+    background-color: #FFED00 !important;
+    color: #000000 !important;
+    border: 1px solid #FFED00 !important;
+    border-radius: 5px;
+}
+
+div[data-testid="stFormSubmitButton"] > button:hover {
+    background-color: #E6D600 !important;
+    border: 1px solid #E6D600 !important;
+    color: #000000 !important;
+}
+
+/* ===== SLIDER ===== */
 section[data-testid="stSidebar"] .stSlider div {
     color: white !important;
 }
 
-/* Checkbox en sidebar */
-section[data-testid="stSidebar"] .stCheckbox span {
-    color: white !important;
+section[data-testid="stSidebar"] .stSlider div[data-baseweb="slider"] {
+    color: #FFED00 !important;
 }
 
-/* Expander en sidebar */
-section[data-testid="stSidebar"] .streamlit-expanderHeader {
-    color: white !important;
-    background-color: rgba(255, 255, 255, 0.1) !important;
+section[data-testid="stSidebar"] .stSlider div[data-baseweb="slider"] > div > div {
+    background-color: #FFED00 !important;
 }
 
-/* Header del sidebar */
-section[data-testid="stSidebar"] .st-emotion-cache-16idsys p {
-    color: white !important;
-    font-weight: 600;
+section[data-testid="stSidebar"] .stSlider div[data-baseweb="slider"] > div > div > div {
+    background-color: #FFED00 !important;
 }
 
-/* Contenedor de login en sidebar */
+section[data-testid="stSidebar"] .stSlider div[data-baseweb="slider"] > div > div > div > div {
+    background-color: #FFFFFF !important;
+    border: 2px solid #000000 !important;
+}
+
+section[data-testid="stSidebar"] .stSlider div[data-baseweb="slider"] track {
+    background-color: #FFED00 !important;
+}
+
+/* Contenedor principal del slider con tu clase */
+.st-key-slider_tab2 div[data-testid="stSlider"] {
+    padding: 5px;
+    border-radius: 5px;
+}
+
+.st-key-slider_tab2 div[data-testid="stSlider"] div[data-baseweb="slider"] div[role="slider"] {
+    background-color: #E6D600 !important;
+    border: 2px solid #ffffff !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+    width: 20px !important;
+    height: 20px !important;
+}
+
+/* ===== EXPANDER ===== */
+section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary {
+    background-color: #FFED00 !important;
+    color: #000000 !important;
+    border-radius: 5px !important;
+    padding: 0.5rem !important;
+    border: none !important;
+    font-weight: bold !important;
+}
+
+section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary:hover {
+    background-color: #E6D600 !important;
+    color: #000000 !important;
+}
+
+section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary p {
+    color: #000000 !important;
+    font-weight: bold !important;
+    margin: 0 !important;
+}
+
+section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary svg {
+    color: #000000 !important;
+}
+
+/* ===== LOGIN ===== */
+.login-form-container {
+    margin-top: 0.2rem;
+}
+
+.st-key-input-user div[data-baseweb="base-input"]{ 
+    background-color: #FFFFFF;
+}
+.st-key-input-user div[data-baseweb="input"]{ 
+    background-color: #FFFFFF;
+}
+
+.st-key-input-pass div[data-baseweb="base-input"]{ 
+    background-color: #FFFFFF;
+}
+.st-key-input-pass div[data-baseweb="input"]{ 
+    background-color: #FFFFFF;
+}
+
 .sidebar-login {
     padding: 1rem;
-    background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
     margin-bottom: 1rem;
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .sidebar-login h3 {
@@ -106,195 +218,170 @@ section[data-testid="stSidebar"] .st-emotion-cache-16idsys p {
     margin-bottom: 1rem;
 }
 
-.login-form-container {
-    margin-top: 0.2rem;
+/* ===== PANEL DE CONTROL ===== */
+.control-panel-container {
+    border: 2px solid #FFED00 !important;
+    border-radius: 10px !important;
+    padding: 15px !important;
+    margin: 10px 0 !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-
-body, h1, h2, h3, h4, h5, h6, p, .stDataFrame, .stButton>button, .stMetricValue {
-    font-family: 'Poppins' !important;
+.control-panel-header {
+    color: #FFED00 !important;
+    font-weight: bold !important;
+    margin-bottom: 15px !important;
+    text-align: center !important;
+    font-size: 1.2rem !important;
 }
 
-.block-container {
-    padding-top: 1rem !important;  /* Aumentamos el padding superior */
-    padding-left: 1rem;
-    padding-right: 1rem;
+/* ===== -EXPANDERS ===== */
+.st-key-exp-rojo div[data-testid="stExpander"] details summary {
+    background-color: #ff4444 !important;
+    color: #ffffff !important;
+    border-radius: 5px !important;
+    padding: 0.5rem !important;
+    border: 1px solid #ff4444 !important;
+    font-weight: bold !important;
 }
 
-
-[data-testid="stMetric"] {
-    width: fit-content!important;
-    margin: auto;
-}
-
-[data-testid="stMetric"] > div {
-    width: fit-content!important;
-    margin: auto;
-}
-
-[data-testid="stMetricValue"] div[data-testid="stMetricValue"] label {
-    font-family: 'Poppins' !important;
-    font-size: 2.5em !important;
-}
-
-div[data-testid="stMetric"] > div:nth-child(2) {
-    font-family: 'Poppins';
-    font-size: 1.8em!important;
-}
-
-.stButton {
-    display: flex;
-    justify-content: center;
-    margin-top: -1em;
-}
-
-.stButton > button {
-    background-color: #fcbf06;
-    border: none;
-    padding: 0.6em 1.2em;
-    border-radius: 8px;
-    font-weight: bold;
-    transition: background-color 0.3s ease;
-    width: 80%;
-    margin: auto;
-}
-
-.stButton > button:hover {
-    background-color: lightgold;
-    color: white;
-}
-
-label[data-testid="stMetricLabel"] p{
-    font-size: 1.6em !important;
-    font-family: 'Poppins';
-}
-
-/* Multi-select en sidebar */
-section[data-testid="stSidebar"] .stMultiSelect div div {
-    background-color: rgba(255, 255, 255, 0.95) !important;
+.st-key-exp-rojo div[data-testid="stExpander"] details {
+    border: 1px solid #ff4444 !important;  /* Borde exterior del expander */
     border-radius: 8px !important;
+    padding: 0rem !important;
+    background-color: #0D2A2B !important;
 }
 
-/* Slider en sidebar */
-section[data-testid="stSidebar"] .stSlider div {
-    color: white !important;
+.st-key-exp-amarillo div[data-testid="stExpander"] details summary {
+    background-color: #FFED00 !important;
+    color: #000000 !important;
+    border-radius: 5px !important;
+    padding: 0.5rem !important;
+    border: 1px solid #FFED00 !important;
+    font-weight: bold !important;
 }
 
-div[data-testid="metric-container"] > label[data-testid="stMetricDelta"] > div {
-  	font-size: medium!important;
-    font-family: 'Poppins'
+.st-key-exp-amarillo div[data-testid="stExpander"] details {
+    border: 1px solid #FFED00 !important;  /* Borde exterior del expander */
+    border-radius: 8px !important;
+    padding: 0rem !important;
+    background-color: #0D2A2B !important;
 }
 
-div[data-testid="stMetric"] {
-    padding: 2px;
-    color: white;
-    font-family: 'Poppins';
+.st-key-exp-azul div[data-testid="stExpander"] details summary {
+    background-color: #0369a1 !important;
+    color: #ffffff !important;
+    border-radius: 5px !important;
+    padding: 0.5rem !important;
+    border: 1px solid #0369a1 !important;
+    font-weight: bold !important;
 }
 
-button[data-baseweb="tab"] p{
-    font-size:16px!important;
-    font-weight: bold;
-    padding:7px;
+.st-key-exp-azul div[data-testid="stExpander"] details {
+    border: 1px solid #0369a1 !important;  /* Borde exterior del expander */
+    border-radius: 8px !important;
+    padding: 0rem !important;
+    background-color: #0D2A2B !important;
 }
 
-.st-key-styled_tabs button[aria-selected="true"]{
-    background-color:#eeeeee;
-    border-radius:5px;
+/* ===== TABS ===== */
+
+.stTabs [aria-selected="true"] {
+    background-color: #113738!important;
+    color: white!important;
+    border-radius: 10px 10px 0 0;
+    padding: 20px 20px;
 }
 
-.st-key-styled_tabs div[data-baseweb="tab-panel"]{
-    border-radius:5px;
-    padding:7px;
-    background-color:#ffffff;
+.stTabs [data-baseweb="tab"] {
+    padding: 20px 20px;
+    white-space: pre-wrap;
 }
 
-.st-key-ext-cond, .st-key-int-cond, .st-key-temp-zon, .st-key-nilm-gen,
-.st-key-nilm-subm-0, .st-key-nilm-subm-1, .st-key-nilm-subm-2, 
-.st-key-SBC-RT, .st-key-SBC-BMS, .st-key-SBC-IA, .st-key-SBC-graph-com, .st-key-SBC-impacto{
-    padding: 0.7rem;
+
+.stTabs [data-baseweb="tab"]:hover {
+    background-color: #203A28;
+    border-radius: 10px 10px 0 0;
+    color:#FFFFFF;
+    padding: 20px 20px;
+}
+
+.stTabs [data-baseweb="tab-panel"] {
+    background-color: #113738;
+    padding: 30px;
+    border-radius: 0 0 10px 10px;
+}
+
+.stTabs [data-baseweb="tab-highlight"] {
+    background-color: #203A28;
+}
+
+button[data-baseweb="tab"] p {
+    font-size: 16px!important;
+    padding: 5px;
+}
+
+.st-key-styled_tabs button[aria-selected="true"] {
+    background-color: #eeeeee;
+    border-radius: 5px;
+    padding: 7px;
+}
+
+.st-key-styled_tabs div[data-baseweb="tab-panel"] {
+    border-radius: 5px;
+    padding: 10px!important;
+    background-color: #ffffff;
+}
+
+/* ===== COMPONENTES ESPECÍFICOS ===== */
+
+.st-key-cont-top5, .st-key-cont-alert {
+    padding: 0rem;
+    background-color: #0D2A2B;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     border-radius: 1rem;
-    margin-bottom: 0rem;
+    overflow: hidden;
 }
 
-.zonas-lista {
-    font-family: 'Poppins';
-    font-size: 16px;
-    color: #222;
-    line-height: 1.5;
+/* Redondear gráficos dentro de estos containers */
+.st-key-cont-top5 [data-testid="stPlotlyChart"],
+.st-key-cont-alert [data-testid="stPlotlyChart"] {
+    border-radius: 1rem;
+    margin-bottom: -0.5rem !important;
+    overflow: hidden;
+}
+    
+/* Ajustar el gráfico al container */
+.st-key-cont-top5 [data-testid="stPlotlyChart"] > div,
+.st-key-cont-alert [data-testid="stPlotlyChart"] > div {
+    border-radius: 1rem !important;
 }
 
-.custom-metric {
-    background-color: #fff;
-    border-radius: 0.5rem;
-    padding: 1rem 1.2rem;
-    text-align: center;
-    font-family: 'Poppins';
-    user-select: none;
-    font-size: 1.1em;
-    line-height: 1.2;
-    margin-bottom: 1.2rem;
-    font-family: 'Poppins';
-}
-
-.custom-metric .label {
-    font-size: 1.1rem;
-    color: #000;
-    text-align: center;
-    margin-bottom: 0.3rem;
-}
-
-.custom-metric .label-mon {
-    font-size: 1.0rem;
-    color: #000;
-    text-align: center;
-    margin-bottom: 0.3rem;
-}
-
-.element-container {
-    margin-bottom: 0.5rem;
-}
-
-.custom-metric .value {
-    font-size: 2.1rem;
-    font-weight: 400;
-    text-align: center;
-    color: #111;
-}
-
-.custom-metric .value-mon {
-    font-size: 1.7rem;
-    font-weight: 200;
-    text-align: left;
-    color: #111;
-}
-
-.custom-metric .delta {
-    font-size: 1.6rem;
-    margin-top: 0.3rem;
-    color: #000;
-}
-
-.footer {
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    background: white;
-    padding: 0.5rem;
-    text-align: left;
-    font-size: 0.85rem;
-    color: #000;
-    font-family: 'Poppins';
-    box-shadow: 0 -1px 5px rgba(0,0,0,0.05);
-    z-index: 9999;
-}
-
-div[data-baseweb="select"] > div {
-    font-family: 'Poppins';
+/* ===== SELECTORES ===== */
+div[data-baseweb="popover"] > div {
+    font-family: 'Manrope';
     font-size: 14px;
 }
 
- div[data-baseweb="popover"] li {
-    font-family: 'Poppins';
+div[data-baseweb="popover"] li {
+    background-color: #FFFFFF;
+    font-family: 'Manrope';
     font-size: 14px;
+    transition: background-color 0.2s ease; /* Para transición suave */
+}
+
+div[data-baseweb="popover"] li:hover {
+    background-color: #E6D600 !important;
+    cursor: pointer;
+}
+
+div[data-baseweb="popover"] ul {
+    background-color: #FFFFFF;
+    font-family: 'Manrope';
+    font-size: 14px;
+}
+
+/* ===== OCULTAR NAVEGACIÓN AUTOMÁTICA STREAMLIT ===== */
+section[data-testid="stSidebar"] ul[data-testid="stSidebarNav"] {
+    display: none !important;
 }

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from utils.model import calculate_time_to_threshold_risk
 
-def predict_failure_risk_curves(rsf, intervals, devices, risk_threshold=0.8, max_time=5000, n_points=200):
+def predict_failure_risk_curves(rsf, intervals, devices, risk_threshold=0.8, max_time=5000, n_points=5000):
     FEATURES = ['total_alarms', 'alarms_last_24h', 'time_since_last_alarm_h']
 
     fig = go.Figure()
@@ -38,35 +38,54 @@ def predict_failure_risk_curves(rsf, intervals, devices, risk_threshold=0.8, max
         else:
             color = colors[i % len(colors)]
 
-        fig.add_trace(go.Scatter(
-            x=plot_times_days,
-            y=failure_risk,
-            mode='lines',
-            name=f"{device}",
-            line=dict(width=2.5, color=color),
-            hovertemplate=f"Equipo: {device}<br>Tiempo desde ahora: %{{x:.1f}} días<br>Riesgo de Falla: %{{y:.3f}}<extra></extra>"
-        ))
-
         last_critical_time = latest_interval.get('last_critical_time', None)
         time_info = f"Última alarma crítica: {pd.Timestamp(last_critical_time).strftime('%Y-%m-%d %H:%M')}" if last_critical_time is not None else "Sin alarmas críticas"
         elapsed_days = current_time / 24.0
-        elapsed_info = f"Tiempo transcurrido: {elapsed_days:.1f} días"
+
+        # Calcular el tiempo total para cada punto
+        total_time_days = elapsed_days + plot_times_days
+
+        # Convertir a porcentaje para mostrar (multiplicar por 100)
+        failure_risk_percent = failure_risk * 100
+        current_risk_percent = current_risk * 100
+
+        fig.add_trace(go.Scatter(
+            x=plot_times_days,
+            y=failure_risk_percent,
+            mode='lines',
+            name=f"{device}",
+            line=dict(width=2.5, color=color),
+            showlegend=False,
+            hovertemplate=(
+                f"<b>{device}</b><br>"
+                f"{time_info}<br>"
+                "Riesgo de falla: %{y:.1f}%<br>"
+                "Tiempo transcurrido desde ultima falla: <b>%{customdata:.1f} días</b>"
+                "<extra></extra>"
+            ),
+            customdata=total_time_days
+        ))
 
         fig.add_trace(go.Scatter(
             x=[0],
-            y=[current_risk],
+            y=[current_risk_percent],
             mode='markers',
             marker=dict(size=12, color=color, symbol='diamond', line=dict(width=2, color='white')),
             showlegend=False,
             name=f"{device} - Actual",
-            hovertemplate=f"<b>{device}</b><br>{time_info}<br>{elapsed_info}<br>Riesgo actual: {current_risk:.3f}<extra></extra>"
+            hovertemplate=(
+                f"<b>{device} - AHORA</b><br>"
+                f"{time_info}<br>"
+                f"Tiempo transcurrido: {elapsed_days:.1f} días<br>"
+                f"<b>Riesgo actual: {current_risk_percent:.1f}%</b>"
+                "<extra></extra>"
+            )
         ))
-
         time_to_threshold, threshold_risk, _ = calculate_time_to_threshold_risk(rsf, intervals, device, risk_threshold, max_time)
 
         if time_to_threshold is not None and time_to_threshold <= max_time:
             threshold_x_days = time_to_threshold / 24.0
-            threshold_y = threshold_risk
+            threshold_y = threshold_risk * 100  # Convertir a porcentaje
 
             fig.add_trace(go.Scatter(
                 x=[threshold_x_days],
@@ -75,35 +94,25 @@ def predict_failure_risk_curves(rsf, intervals, devices, risk_threshold=0.8, max
                 marker=dict(size=10, color=color, symbol='x', line=dict(width=2, color='black')),
                 showlegend=False,
                 name=f"{device} - Umbral {int(risk_threshold*100)}%",
-                hovertemplate=f"<b>{device}</b><br>Tiempo hasta {int(risk_threshold*100)}% riesgo: {threshold_x_days:.1f} días<br>Riesgo: {threshold_risk:.3f}<extra></extra>"
+                hovertemplate=f"<b>{device}</b><br>Tiempo hasta {int(risk_threshold*100)}% riesgo: {threshold_x_days:.1f} días<br>Riesgo: {threshold_y:.1f}%<extra></extra>"
             ))
 
-    fig.add_hline(
-        y=risk_threshold,
-        line_dash="dash",
-        line_color="red",
-    )
+    # Convertir el umbral a porcentaje para la línea horizontal
+    risk_threshold_percent = risk_threshold * 100
+    fig.add_hline(y=risk_threshold_percent, line_dash="dash", line_color="red")
 
     fig.update_layout(
         font=dict(family="Poppins", color="black"),
-        height=700,  # Altura fija para evitar crecimiento excesivo
-        legend=dict(
-            orientation="v",  # Leyenda vertical
-            yanchor="top",
-            xanchor="left",
-            font=dict(size=10.5,family='Poppins'),  # Tamaño de fuente reducido
-            itemwidth=30,  # Ancho consistente para items
-            borderwidth=1,
-            tracegroupgap=8,
-            itemclick="toggle",
-            itemdoubleclick="toggleothers"
+        height=350,
+        xaxis=dict(range=[-10, 220], showline=True, linecolor='black', showgrid=False, zeroline=False, title_font=dict(color='black',family='Poppins'),tickfont=dict(color='black',family='Poppins')),
+        yaxis=dict(
+            domain=[0.00, 1.00],
+            title_font=dict(color='black',family='Poppins'), 
+            tickfont=dict(color='black',family='Poppins'),
+            ticksuffix="%",  # Agregar símbolo de porcentaje a los ticks
+            range=[0, 100]   # Establecer rango de 0 a 100%
         ),
-        xaxis=dict(showline=True, linecolor='black', showgrid=False, zeroline=False, title_font=dict(color='black',family='Poppins'),tickfont=dict(color='black',family='Poppins')),
-        yaxis=dict(domain=[0.00, 1.00],title_font=dict(color='black',family='Poppins'), tickfont=dict(color='black',family='Poppins')),
-        
-        margin=dict(l=50, r=150, t=0, b=50),  # Margen derecho amplio para leyenda
-        plot_bgcolor='white',
-        paper_bgcolor='white'
+        margin=dict(l=50, r=50, t=0, b=0),  # Margen derecho amplio para leyenda
     )
 
     return fig

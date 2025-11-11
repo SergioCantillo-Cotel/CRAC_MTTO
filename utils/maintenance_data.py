@@ -2,19 +2,18 @@
 import pandas as pd
 import streamlit as st
 from datetime import datetime
+from utils.api_crm import crear_cliente_crm
 
 #@st.cache_data(ttl=3600)  # Cache por 1 hora
-def load_maintenance_data(file_path='reporte_mttos.csv'):
+def load_maintenance_data(seriales,file_path='reporte_mttos.csv'):
     """
-    Carga y procesa los datos de mantenimiento desde el CSV
+    Carga y procesa los datos de mantenimiento desde el API del CRM
     """
+    crm = crear_cliente_crm()
+    df_mttos = crm.get_equipos_dataframe(seriales)
+    
     try:
-        df_mttos = pd.read_csv(
-            file_path,quotechar='"',
-            doublequote=True,escapechar='\\',
-            na_filter=False,keep_default_na=False
-        )
-        
+        df_mttos['serial'] = df_mttos['serial'].str.strip()
         # Verificar que tenemos las columnas necesarias
         required_cols = ['serial', 'hora_salida']
         missing_cols = [col for col in required_cols if col not in df_mttos.columns]
@@ -74,7 +73,6 @@ def get_client_by_serial(df_mttos):
         # Asumimos que un serial siempre pertenece al mismo cliente
         client_mapping = df_mttos.drop_duplicates('serial', keep='first')
         client_dict = dict(zip(client_mapping['serial'], client_mapping['cliente']))
-        
         return client_dict
         
     except Exception as e:

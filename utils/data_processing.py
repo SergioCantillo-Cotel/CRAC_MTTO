@@ -23,6 +23,8 @@ def load_and_process_data(df_raw):
             col_map['Dispositivo'] = c
         elif any(x in lc for x in ['serial', 'serie']):
             col_map['Serial_dispositivo'] = c
+        elif any(x in lc for x in ['model', 'modelo']):
+            col_map['Modelo'] = c
         elif any(x in lc for x in ['severidad', 'severity', 'nivel', 'level', 'priority']):
             col_map['Severidad'] = c
         elif any(x in lc for x in ['descripcion', 'description', 'mensaje', 'message', 'detail']):
@@ -85,7 +87,6 @@ def load_and_process_data(df_raw):
     if df.empty:
         st.error("No quedaron datos válidos después del procesamiento")
         return pd.DataFrame()
-    
     return df
 
 def build_intervals_with_current_time(df, id_col, time_col, is_failure_col, sev_thr):

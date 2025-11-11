@@ -1,3 +1,4 @@
+
 import warnings
 import numpy as np
 import pandas as pd
@@ -123,7 +124,7 @@ def calculate_time_to_threshold_risk(rsf, intervals, device, risk_threshold=0.8,
 
 @st.cache_resource(show_spinner="Entrenando modelo predictivo de fallas...")
 def build_rsf_model(_df, sev_thr):
-    """Build RSF model con umbral de severidad fijo"""
+    """Build RSF model con umbral de severidad fijo - CON CACHING GLOBAL"""
     from utils.alerts import detect_failures
     from utils.data_processing import build_intervals_with_current_time
     
@@ -163,7 +164,7 @@ def build_rsf_model(_df, sev_thr):
         if n_samples >= 10 and n_events >= 3:
             try:
                 rsf_model, features = train_rsf_model(intervals)
-               #st.success("✅ Modelo entrenado exitosamente")
+                #st.success("✅ Modelo entrenado exitosamente")
                 return rsf_model, intervals, features
             except ValueError as e:
                 st.warning(f"⚠️ No se pudo entrenar el modelo: {str(e)}")

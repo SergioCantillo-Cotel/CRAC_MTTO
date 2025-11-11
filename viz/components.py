@@ -4,31 +4,58 @@ import numpy as np
 import plotly.graph_objects as go
 from utils.alerts import get_device_failures, hours_to_days_hours
 from utils.model import calculate_time_to_threshold_risk
-from .charts import predict_failure_risk_curves
+from utils.time_monitor import round_down_10_minutes
+from viz.charts import predict_failure_risk_curves
 
-def render_sidebar(df):
-    """Renderiza el panel de control lateral (sin umbral de severidad)"""
-    st.sidebar.header("🎛️ Panel de Control")
+def custom_metric(label, value, hint="", delta=None, color="#ffffff", bg_color="#0D2A2B"):
+    """
+    Métrica personalizada sencilla con hint y fondo
+    """
+    delta_html = ""
+    if delta:
+        delta_color = "#00ff00" if str(delta).startswith("+") else "#ff0000"
+        delta_html = f'<div style="font-size: 14px; color: {delta_color}; margin-top: 5px;">{delta}</div>'
+    
+    tooltip = f'title="{hint}"' if hint else ""
+    
+    html = f"""
+    <div style="background-color: {bg_color};padding: 1rem;border-radius: 0.5rem;text-align: center;cursor: help;" {tooltip}>
+        <div style="font-size: 14px;color: #ffffff;margin-bottom: 2px;font-weight: 400;">
+            {label}
+        </div>
+        <div style="font-size: 24px;color: {color};font-weight: 500;line-height: 0.8;">
+            {value}
+        </div>
+        {delta_html}
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
 
-    risk_threshold = st.sidebar.slider("🎯 Umbral de probabilidad de falla",
-                                      min_value=0.1, max_value=0.95,
-                                      value=0.8, step=0.01,
-                                      help="Probabilidad de falla a monitorear (80% = alto riesgo)")
+def render_sidebar(container,df):
+    """Renderiza el panel de control lateral dentro de un contenedor con borde"""
+    # Slider que muestra porcentajes pero trabaja internamente con decimales
+    risk_threshold_decimal = container.slider(
+        "⚠️ Umbral de riesgo (%)",
+        min_value=1.0, 
+        max_value=100.0,
+        value=80.0, 
+        step=0.1,
+        format="%.1f%%",  # Esto muestra 80% en lugar de 0.8
+        help="Probabilidad de falla a monitorear (80% = alto riesgo)"
+    )/100
 
-    device_filter = st.sidebar.multiselect("🔍 Filtrar dispositivos",
+    device_filter = container.multiselect("🔍 Filtrar dispositivos",
                                           options=sorted(df['Dispositivo'].unique()),
                                           default=[],
                                           help="Vacío = todos los dispositivos")
     
-    return risk_threshold, device_filter
+    return risk_threshold_decimal, device_filter
 
 def render_tab1(rsf_model, intervals, features, df, available_devices, risk_threshold):
     """Renderiza la pestaña de resumen"""
-    priority_col, summary_col = st.columns([2, 1])
+    priority_col, summary_col = st.columns([3,1])
 
     with priority_col:
-        st.subheader("🔧 Equipos con Prioridad de Mantenimiento")
-
         if rsf_model is not None and len(intervals) > 0:
             maintenance_data = []
             
@@ -56,7 +83,7 @@ def render_tab1(rsf_model, intervals, features, df, available_devices, risk_thre
                             'serial': serial,
                             'tiempo_hasta_umbral': time_to_threshold,
                             'tiempo_hasta_umbral_dias': time_to_threshold / 24.0,
-                            'riesgo_actual': current_risk,
+                            'riesgo_actual': current_risk,  # Ya está en porcentaje
                             'total_alarmas': total_alarms,
                             'tiempo_transcurrido': current_time,
                             'tiempo_transcurrido_dias': current_time / 24.0
@@ -66,11 +93,10 @@ def render_tab1(rsf_model, intervals, features, df, available_devices, risk_thre
                 maintenance_df = pd.DataFrame(maintenance_data)
                 maintenance_df = maintenance_df.sort_values(
                     ['tiempo_hasta_umbral', 'riesgo_actual'],
-                    ascending=[True, False]
-                ).head(5)
+                    ascending=[True, False]).head(5)
 
                 maintenance_df = maintenance_df.iloc[::-1]
-
+                cont_top5 = st.container(key='cont-top5')
                 fig_bar = go.Figure()
 
                 for i, (_, row) in enumerate(maintenance_df.iterrows()):
@@ -90,23 +116,29 @@ def render_tab1(rsf_model, intervals, features, df, available_devices, risk_thre
                         hovertemplate=f"<b>{row['equipo']}</b><br>" +
                                      f"Serial: {row['serial']}<br>" +
                                      f"Tiempo hasta {int(risk_threshold*100)}% riesgo: {row['tiempo_hasta_umbral_dias']:.1f} días<br>" +
-                                     f"Riesgo actual: {row['riesgo_actual']:.1f}%<br>" +
+                                     f"Riesgo actual: {row['riesgo_actual']:.1f}%<br>" +  # Ya está en porcentaje
                                      f"Tiempo transcurrido: {row['tiempo_transcurrido_dias']:.1f} días<br>" +
                                      f"Total alarmas: {row['total_alarmas']}<extra></extra>"
                     ))
 
                 fig_bar.update_layout(
-                    template="plotly_white",
-                    height=400,
-                    xaxis_title="Días hasta alcanzar umbral de riesgo",
+                    paper_bgcolor='#0D2A2B',
+                    height=360,
+                    
+                    title={
+                        'text': f"🔧 Top {len(available_devices)} Equipos con Prioridad de Mantenimiento",
+                        'x': 0.5, 'font': {'color':"#ffffff"},
+                        'xanchor': 'center',
+                    },
+                    xaxis_title="Días hasta umbral de riesgo",
                     yaxis_title="Equipos",
                     showlegend=False,
-                    margin=dict(l=0, r=0, t=20, b=0),
-                    xaxis=dict(showline=True, linecolor='black', showgrid=False, zeroline=False, title_font=dict(color='black',family='Poppins'),tickfont=dict(color='black',family='Poppins')),
-                    yaxis=dict(title_font=dict(color='black',family='Poppins'), tickfont=dict(color='black',family='Poppins'))
+                    margin=dict(l=30, r=40, t=55, b=30),
+                    xaxis=dict(showline=True, linecolor='white', showgrid=False, zeroline=False, title_font=dict(color='white',family='Manrope'),tickfont=dict(color='white',family='Manrope')),
+                    yaxis=dict(title_font=dict(color='white',family='Manrope'), tickfont=dict(color='white',family='Manrope'))
                 )
 
-                st.plotly_chart(fig_bar, use_container_width=True)
+                cont_top5.plotly_chart(fig_bar, width='stretch', config={'displayModeBar': False})
             else:
                 st.info("No hay equipos con riesgo futuro identificado")
         else:
@@ -116,7 +148,6 @@ def render_tab1(rsf_model, intervals, features, df, available_devices, risk_thre
                 st.info("El modelo predictivo proporcionará prioridades una vez entrenado")
 
     with summary_col:
-        # Pasar el conteo de dispositivos disponibles (filtrados) para el contexto
         available_devices_count = len(available_devices)
         _render_summary_col(rsf_model, intervals, 
                           maintenance_data if 'maintenance_data' in locals() else None,
@@ -136,33 +167,34 @@ def _render_summary_col(rsf_model, intervals, maintenance_data, available_device
                                          (all_maintenance_df['tiempo_hasta_umbral_dias'] < 90)])
             bajo = len(all_maintenance_df[all_maintenance_df['tiempo_hasta_umbral_dias'] >= 90])
 
-            col1, col2 = st.columns(2)
+            cont_alert = st.container(key='cont-alert')
+            col1, col2 = cont_alert.columns(2)
 
             with col1:
-                st.metric("🔴 Crítico", critico, help="Equipos que requieren atención inmediata (1-2 Horas)")
-                st.metric("🟠 Alto", alto, help="Equipos que requieren atención próxima")
+                custom_metric("🔴 Crítico", critico, hint="Equipos que requieren atención inmediata (1-2 Horas)")
+                custom_metric("🟠 Alto", alto, hint="Equipos que requieren mantenimiento próximamente")
 
             with col2:
-                st.metric("🟡 Medio", medio, help="Equipos para planificación a mediano plazo")
-                st.metric("🟢 Bajo", bajo, help="Equipos con bajo riesgo inmediato")
-
+                custom_metric("🟡 Medio", medio, hint="Equipos para planificación de mantenimiento a mediano plazo")
+                custom_metric("🟢 Bajo", bajo, hint="Equipos con bajo riesgo inmediato")
+                
             if critico + alto + medio + bajo > 0:
                 fig_pie = go.Figure(data=[go.Pie(
                     labels=['Crítico', 'Alto', 'Medio', 'Bajo'],
                     values=[critico, alto, medio, bajo],
                     marker_colors=['#ef4444', '#f59e0b', '#eab308', '#22c55e'],
-                    hole=.4
+                    hole=.4,rotation=90
                 )])
 
                 fig_pie.update_layout(
-                    template="plotly_white",
-                    height=250,
-                    margin=dict(l=0, r=0, t=0, b=0),
+                    paper_bgcolor='#0D2A2B',
+                    height=200,
+                    margin=dict(l=10, r=0, t=30, b=10),
                     showlegend=False,
                     title_x=0.5, title='',
-                    font=dict(color='black',family='Poppins'),
+                    font=dict(color='white',family='Manrope'),
                 )
-                st.plotly_chart(fig_pie, use_container_width=True)
+                cont_alert.plotly_chart(fig_pie, width='stretch', config={'displayModeBar': False})
         else:
             st.info(f"Sin datos de riesgo para los {available_devices_count} equipos seleccionados")
     else:
@@ -170,7 +202,7 @@ def _render_summary_col(rsf_model, intervals, maintenance_data, available_device
 
 def render_tab2(rsf_model, intervals, plot_devices, risk_threshold):
     """Renderiza la pestaña de proyección de riesgo"""
-    top_n = st.slider("📊 Número de equipos a mostrar",
+    top_n = st.slider("📊 Número de equipos a mostrar",key="slider_tab2",
                       min_value=0,
                       max_value=len(plot_devices),
                       value=min(5, len(plot_devices)))
@@ -184,18 +216,23 @@ def render_tab2(rsf_model, intervals, plot_devices, risk_threshold):
                                             max_time=5000)
 
             fig.update_layout(
-                template="plotly_white",
+                paper_bgcolor='#113738',
+                plot_bgcolor='#113738', 
                 height=450,
                 xaxis_title="Días desde ahora",
-                yaxis_title="Probabilidad de Falla",
-                margin=dict(l=0, r=0, t=30, b=0),
+                yaxis_title="Probabilidad de Falla (%)",  # Agregar % al título
+                margin=dict(l=10, r=10, t=30, b=0),
                 legend=dict(orientation="h", yanchor="bottom", y=-1.22),
                 hovermode="closest",
-                xaxis=dict(range=[0, 5000 / 24])
+                xaxis=dict(range=[0, 5000 / 24], showline=True, linecolor='white', showgrid=False, zeroline=False, title_font=dict(color='white',family='Manrope'),tickfont=dict(color='white',family='Manrope')),
+                yaxis=dict(
+                    title_font=dict(color='white',family='Manrope'), 
+                    tickfont=dict(color='white',family='Manrope'),
+                    ticksuffix="%",  # Agregar % a los ticks del eje Y
+                    range=[0, 100]   # Rango de 0% a 100%
+                )
             )
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
-
-        st.info("💡 **Leyenda:** ◊ Tiempo actual | ✕ Tiempo hasta alcanzar umbral de riesgo | Línea roja: Umbral de alerta")
+            st.plotly_chart(fig, width='stretch', config={'displayModeBar': True})
     else:
         if rsf_model is None:
             st.warning("Modelo no disponible - datos insuficientes para entrenar el modelo predictivo (ver Debug).")
@@ -243,7 +280,7 @@ def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None
                         'serial': serial,
                         'tiempo_hasta_umbral': time_to_threshold,
                         'tiempo_hasta_umbral_dias': time_to_threshold / 24.0,
-                        'riesgo_actual': current_risk,
+                        'riesgo_actual': current_risk,  # Ya está en porcentaje
                         'total_alarmas': total_alarms,
                         'tiempo_transcurrido': current_time,
                         'tiempo_transcurrido_dias': current_time / 24.0
@@ -321,14 +358,14 @@ def _render_maintenance_sections(critico_df, alto_df, planificar_df, df,
         color_set = colors.get(color_scheme, colors['planificar'])
         
         st.markdown(f"""
-        <div style='background-color: {color_set['bg']}; border-left: 4px solid {color_set['border']}; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+        <div style='background-color: {color_set['bg']}; border-left: 5px solid {color_set['border']}; padding: 15px; margin: 10px 0; border-radius: 5px;'>
             <h4 style='margin: 0; color: {color_set['text']};'>{row['equipo']}</h4>
-            <p style='margin: 5px 0; font-size: 14px;'>
+            <p style='margin: 5px 0; font-size: 14px; color:#000000;'>
             <strong>🔢 Serial: {row['serial']}</strong><br>
             <strong>🏢 Cliente: {client}</strong><br>
             <strong>🔧 Último mantenimiento: {maintenance_text}</strong><br>
             <strong>⏱️ {hours_to_days_hours(row['tiempo_hasta_umbral'])}</strong> hasta umbral<br>
-            <strong>📊 {row['riesgo_actual']:.1f}%</strong> riesgo actual<br>
+            <strong>📊 {row['riesgo_actual']:.1f}%</strong> riesgo actual<br>  <!-- Ya está en porcentaje -->
             <strong>🕐 {hours_to_days_hours(row['tiempo_transcurrido'])}</strong> transcurrido
             </p>
         </div>
@@ -344,36 +381,39 @@ def _render_maintenance_sections(critico_df, alto_df, planificar_df, df,
     
     # Renderizar sección CRÍTICO
     if len(critico_df) > 0:
-        with st.expander(f"🚨 **MANTENIMIENTO INMEDIATO REQUERIDO** ({len(critico_df)} equipos)", expanded=True):
-            n_criticos = len(critico_df)
-            crit_cols = st.columns(min(3, n_criticos))
+        with st.container(key="exp-rojo"):
+            with st.expander(f"🚨 **MANTENIMIENTO INMEDIATO REQUERIDO** ({len(critico_df)} equipos)", expanded=True):
+                n_criticos = len(critico_df)
+                crit_cols = st.columns(min(3, n_criticos))
 
-            for idx, (_, row) in enumerate(critico_df.iterrows()):
-                with crit_cols[idx % len(crit_cols)]:
-                    device_failures = get_device_failures(df, row['equipo'])
-                    render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'critico')
+                for idx, (_, row) in enumerate(critico_df.iterrows()):
+                    with crit_cols[idx % len(crit_cols)]:
+                        device_failures = get_device_failures(df, row['equipo'])
+                        render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'critico')
 
     # Renderizar sección ALTO
     if len(alto_df) > 0:
-        with st.expander(f"⚠️ **MANTENIMIENTO PRÓXIMO** ({len(alto_df)} equipos)", expanded=True):
-            n_altos = len(alto_df)
-            alto_cols = st.columns(min(3, n_altos))
+        with st.container(key="exp-amarillo"):
+            with st.expander(f"⚠️ **MANTENIMIENTO PRÓXIMO** ({len(alto_df)} equipos)", expanded=True):
+                n_altos = len(alto_df)
+                alto_cols = st.columns(min(3, n_altos))
 
-            for idx, (_, row) in enumerate(alto_df.iterrows()):
-                with alto_cols[idx % len(alto_cols)]:
-                    device_failures = get_device_failures(df, row['equipo'])
-                    render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'alto')
+                for idx, (_, row) in enumerate(alto_df.iterrows()):
+                    with alto_cols[idx % len(alto_cols)]:
+                        device_failures = get_device_failures(df, row['equipo'])
+                        render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'alto')
 
     # Renderizar sección PLANIFICAR
     if len(planificar_df) > 0:
-        with st.expander(f"📅 **MANTENIMIENTO PLANIFICADO** ({len(planificar_df)} equipos)", expanded=True):
-            n_planificar = len(planificar_df)
-            plan_cols = st.columns(min(3, n_planificar))
+        with st.container(key="exp-azul"):
+            with st.expander(f"📅 **MANTENIMIENTO PLANIFICADO** ({len(planificar_df)} equipos)", expanded=True):
+                n_planificar = len(planificar_df)
+                plan_cols = st.columns(min(3, n_planificar))
 
-            for idx, (_, row) in enumerate(planificar_df.iterrows()):
-                with plan_cols[idx % len(plan_cols)]:
-                    device_failures = get_device_failures(df, row['equipo'])
-                    render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'planificar')
+                for idx, (_, row) in enumerate(planificar_df.iterrows()):
+                    with plan_cols[idx % len(plan_cols)]:
+                        device_failures = get_device_failures(df, row['equipo'])
+                        render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'planificar')
 
 def render_user_info():
     """Renderiza información del usuario en el sidebar"""
@@ -381,3 +421,13 @@ def render_user_info():
         st.sidebar.markdown("---")
         st.sidebar.markdown(f"**👤 Usuario:** {st.session_state.get('username', 'N/A')}")
         st.sidebar.markdown(f"**🎯 Rol:** {st.session_state.get('user_role', 'N/A')}")
+
+
+def render_footer():
+    last_update = round_down_10_minutes()
+    st.markdown(
+        f"<div style='text-align: center; color: #fff; font-size: 12px; padding: 0px;'>"
+        f"Última actualización: {last_update}"
+        f"</div>", 
+        unsafe_allow_html=True
+    )
