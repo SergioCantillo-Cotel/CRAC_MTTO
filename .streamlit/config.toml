@@ -1,2 +1,12 @@
 [theme]
 base="light"
+showWidgetBorder=false
+font = "Manrope:https://fonts.googleapis.com/css2?family=Manrope:wght@400;700&display=swap"
+baseFontSize=15
+backgroundColor = "#0D2A2B"
+
+[theme.sidebar]
+showWidgetBorder=true
+borderColor="#FFED00"
+primaryColor="#FFED00"
+textColor="#000000"
