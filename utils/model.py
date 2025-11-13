@@ -1,4 +1,3 @@
-
 import warnings
 import numpy as np
 import pandas as pd
@@ -9,11 +8,11 @@ import streamlit as st
 
 def train_rsf_model(intervals):
     """Train Random Survival Forest model with enhanced parameters"""
+    # USAR SOLO CARACTERÍSTICAS BASADAS EN COMPORTAMIENTO POST-MANTENIMIENTO
     FEATURES = ['total_alarms', 'alarms_last_24h', 'time_since_last_alarm_h']
     
-    # Usar parámetros mejorados basados en el nuevo código
     RSF_PARAMS = {
-        "n_estimators": 250,  # Aumentado de 100 a 250
+        "n_estimators": 250,
         "max_features": "sqrt",
         "n_jobs": -1,
         "random_state": 42
@@ -100,6 +99,8 @@ def calculate_time_to_threshold_risk(rsf, intervals, device, risk_threshold=0.8,
             return None, None, None
             
         surv_func = surv_funcs[0]
+        
+        # USAR TIEMPO DESDE ÚLTIMO MANTENIMIENTO O CRÍTICO (YA CALCULADO EN DATA_PROCESSING)
         current_time = float(latest_interval.get('current_time_elapsed', 0))
 
         # Buscar punto donde se alcanza el umbral de riesgo
@@ -123,8 +124,8 @@ def calculate_time_to_threshold_risk(rsf, intervals, device, risk_threshold=0.8,
         return None, None, None
 
 @st.cache_resource(show_spinner="Entrenando modelo predictivo de fallas...")
-def build_rsf_model(_df, sev_thr):
-    """Build RSF model con umbral de severidad fijo - CON CACHING GLOBAL"""
+def build_rsf_model(_df, sev_thr, last_maintenance_dict=None):
+    """Build RSF model con umbral de severidad fijo - ACTUALIZADO para usar mantenimiento"""
     from utils.alerts import detect_failures
     from utils.data_processing import build_intervals_with_current_time
     
@@ -137,16 +138,17 @@ def build_rsf_model(_df, sev_thr):
             df_processed,
             desc_col,
             'Severidad',
-            sev_thr=sev_thr  # Usar el umbral fijo
+            sev_thr=sev_thr
         )
 
-        # Construir intervalos
+        # Construir intervalos CON INFORMACIÓN DE MANTENIMIENTO
         intervals = build_intervals_with_current_time(
             df_processed,
             'Dispositivo',
             'Fecha_alarma',
             'is_failure_bool',
-            sev_thr  # Usar el umbral fijo
+            sev_thr,
+            last_maintenance_dict  # PASA EL DICCIONARIO DE MANTENIMIENTO
         )
 
         if intervals.empty:
@@ -157,14 +159,10 @@ def build_rsf_model(_df, sev_thr):
         n_events = int(intervals['event'].sum())
         n_samples = len(intervals)
         
-        #st.info(f"📊 Estadísticas del modelo: {n_samples} intervalos, {n_events} eventos de falla")
-        #st.info(f"⚙️ Umbral de severidad configurado: {sev_thr}")
-
         # Condiciones para entrenamiento
         if n_samples >= 10 and n_events >= 3:
             try:
                 rsf_model, features = train_rsf_model(intervals)
-                #st.success("✅ Modelo entrenado exitosamente")
                 return rsf_model, intervals, features
             except ValueError as e:
                 st.warning(f"⚠️ No se pudo entrenar el modelo: {str(e)}")

@@ -140,26 +140,19 @@ def render_authenticated_interface():
     # Cargar datos de mantenimiento
     # -----------------------
     with st.spinner("📋 Cargando historial de mantenimientos..."):
-        # Usar seriales de los datos del usuario para mantenimiento
         seriales = df_raw_user_processed['Serial_dispositivo'].unique()
         df_mttos = load_maintenance_data(seriales)
         last_maintenance_dict = get_last_maintenance_by_serial(df_mttos)
         client_dict = get_client_by_serial(df_mttos)
 
-    # -----------------------
-    # SIDEBAR - Unified Controls (usar df_user para las opciones)
-    # -----------------------
     container = st.sidebar.expander(f"Panel de Control",expanded=True,icon="🎛️")
     risk_threshold, device_filter = render_sidebar(container, df_user)
 
-    # -----------------------
-    # Build RSF Model (cached) - ENTRENAR CON DATOS COMPLETOS
-    # -----------------------
-    SEVERITY_THRESHOLD = 6  # Umbral fijo para alarmas críticas
+    SEVERITY_THRESHOLD = 6
     
     with st.spinner("🤖 Analizando patrones de comportamiento..."):
-        # IMPORTANTE: Entrenar el modelo con TODOS los datos (df_complete)
-        rsf_model, intervals, features = build_rsf_model(df_complete, SEVERITY_THRESHOLD)
+        # PASA last_maintenance_dict AL CONSTRUIR EL MODELO
+        rsf_model, intervals, features = build_rsf_model(df_complete, SEVERITY_THRESHOLD, last_maintenance_dict)
 
     # -----------------------
     # APLICAR FILTROS DEL SIDEBAR SOBRE LOS DATOS DEL USUARIO

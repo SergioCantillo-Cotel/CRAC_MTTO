@@ -89,8 +89,8 @@ def load_and_process_data(df_raw):
         return pd.DataFrame()
     return df
 
-def build_intervals_with_current_time(df, id_col, time_col, is_failure_col, sev_thr):
-    """Build survival intervals from alarm data including current time"""
+def build_intervals_with_current_time(df, id_col, time_col, is_failure_col, sev_thr, last_maintenance_dict=None):
+    """Build survival intervals from alarm data including current time - MODIFICADO para considerar mantenimiento"""
     df = df.sort_values([id_col, time_col]).reset_index(drop=True)
     recs = []
     now = pd.Timestamp.now().tz_localize(None)
@@ -113,12 +113,35 @@ def build_intervals_with_current_time(df, id_col, time_col, is_failure_col, sev_
         if n == 0:
             continue
 
+        # OBTENER FECHA DE ÚLTIMO MANTENIMIENTO (NUEVA LÓGICA)
+        last_maintenance_time = None
+        if last_maintenance_dict:
+            # Buscar el serial del dispositivo
+            device_data = df[df['Dispositivo'] == unit]
+            if not device_data.empty and 'Serial_dispositivo' in device_data.columns:
+                serial = device_data['Serial_dispositivo'].iloc[0]
+                last_maintenance_time = last_maintenance_dict.get(serial)
+                if last_maintenance_time is not None:
+                    last_maintenance_time = pd.Timestamp(last_maintenance_time).tz_localize(None)
+
+        # CALCULAR TIEMPO BASE CONSIDERANDO MANTENIMIENTO
         last_critical_time = get_last_critical_alarm_time(df, unit, sev_thr)
-        if last_critical_time is not None:
-            last_critical_time = pd.Timestamp(last_critical_time).tz_localize(None)
-            current_time_elapsed = (now - last_critical_time).total_seconds() / 3600.0
+        
+        # Determinar el punto de inicio para el cálculo del tiempo
+        if last_maintenance_time is not None:
+            # Si hay mantenimiento, usar la fecha más reciente entre mantenimiento y última alarma crítica
+            if last_critical_time is not None:
+                start_time = max(last_maintenance_time, pd.Timestamp(last_critical_time).tz_localize(None))
+            else:
+                start_time = last_maintenance_time
+            current_time_elapsed = (now - start_time).total_seconds() / 3600.0
         else:
-            current_time_elapsed = 0.0
+            # Comportamiento original si no hay mantenimiento
+            if last_critical_time is not None:
+                last_critical_time = pd.Timestamp(last_critical_time).tz_localize(None)
+                current_time_elapsed = (now - last_critical_time).total_seconds() / 3600.0
+            else:
+                current_time_elapsed = 0.0
 
         start_idx = 0
         fail_indices = np.where(is_fail)[0]
@@ -139,7 +162,8 @@ def build_intervals_with_current_time(df, id_col, time_col, is_failure_col, sev_
                 'alarms_last_24h': 0,
                 'time_since_last_alarm_h': float(time_since_last_alarm_h) if not np.isnan(time_since_last_alarm_h) else np.nan,
                 'current_time_elapsed': float(current_time_elapsed),
-                'last_critical_time': last_critical_time
+                'last_critical_time': last_critical_time,
+                'last_maintenance_time': last_maintenance_time  # NUEVO CAMPO
             })
         else:
             for fi in fail_indices:
@@ -173,7 +197,8 @@ def build_intervals_with_current_time(df, id_col, time_col, is_failure_col, sev_
                     'alarms_last_24h': int(alarms_last_24h),
                     'time_since_last_alarm_h': float(time_since_last_alarm_h) if not np.isnan(time_since_last_alarm_h) else np.nan,
                     'current_time_elapsed': float(current_time_elapsed),
-                    'last_critical_time': last_critical_time
+                    'last_critical_time': last_critical_time,
+                    'last_maintenance_time': last_maintenance_time  # NUEVO CAMPO
                 })
                 start_idx = end_idx
 
@@ -197,7 +222,8 @@ def build_intervals_with_current_time(df, id_col, time_col, is_failure_col, sev_
                     'alarms_last_24h': int(alarms_last_24h),
                     'time_since_last_alarm_h': float(time_since_last_alarm_h) if not np.isnan(time_since_last_alarm_h) else np.nan,
                     'current_time_elapsed': float(current_time_elapsed),
-                    'last_critical_time': last_critical_time
+                    'last_critical_time': last_critical_time,
+                    'last_maintenance_time': last_maintenance_time  # NUEVO CAMPO
                 })
 
     return pd.DataFrame(recs)

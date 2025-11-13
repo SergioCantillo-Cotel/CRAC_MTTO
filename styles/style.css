@@ -31,17 +31,6 @@ section[data-testid="stSidebar"] h6 {
     color: white !important;
 }
 
-section[data-testid="stSidebar"] .st-emotion-cache-16idsys {
-    padding-top: 10px !important;
-    margin-top: 10px !important;
-}
-
-section[data-testid="stSidebar"] .st-emotion-cache-16idsys p {
-    color: white !important;
-    font-weight: 600;
-    margin-bottom: 20px !important;
-}
-
 /* Inputs del sidebar */
 section[data-testid="stSidebar"] .stTextInput input {
     background-color: rgba(255, 255, 255, 0.9) !important;
@@ -56,9 +45,9 @@ section[data-testid="stSidebar"] .stTextInput input:focus {
 
 /* Multi-select del sidebar */
 section[data-testid="stSidebar"] .stMultiSelect div div {
-    background-color: #FFFFFF !important;
+    /*background-color: #FFFFFF !important;*/
     border-radius: 8px !important;
-    color: #000000;
+    color: #FFFFFF;
 }
 
 section[data-baseweb="popover"] div div ul{
@@ -66,7 +55,6 @@ section[data-baseweb="popover"] div div ul{
     border-radius: 8px !important;
     color: #000000;
 }
-
 
 /* ===== BOTONES ===== */
 /* Botones en sidebar - COLOR #FFED00 */
@@ -129,9 +117,7 @@ section[data-testid="stSidebar"] .stSlider div[data-baseweb="slider"] > div > di
     background-color: #FFED00 !important;
 }
 
-section[data-testid="stSidebar"] .stSlider div[data-baseweb="slider"] > div > div > div {
-    background-color: #FFED00 !important;
-}
+
 
 section[data-testid="stSidebar"] .stSlider div[data-baseweb="slider"] > div > div > div > div {
     background-color: #FFFFFF !important;
@@ -139,7 +125,7 @@ section[data-testid="stSidebar"] .stSlider div[data-baseweb="slider"] > div > di
 }
 
 section[data-testid="stSidebar"] .stSlider div[data-baseweb="slider"] track {
-    background-color: #FFED00 !important;
+    background: linear-gradient(to right, #4CAF50, #FF5722);
 }
 
 /* Contenedor principal del slider con tu clase */
@@ -381,6 +367,13 @@ div[data-baseweb="popover"] ul {
     font-size: 14px;
 }
 
+.stTooltipContent {
+    background-color: #E6D600 !important; /* Example color (orange-red) */
+    color: black !important;               /* Change text color for readability */
+    border-radius: 5px !important;
+    border: #000000;
+}
+    
 /* ===== OCULTAR NAVEGACIÓN AUTOMÁTICA STREAMLIT ===== */
 section[data-testid="stSidebar"] ul[data-testid="stSidebarNav"] {
     display: none !important;

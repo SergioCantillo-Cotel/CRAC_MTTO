@@ -33,21 +33,20 @@ def custom_metric(label, value, hint="", delta=None, color="#ffffff", bg_color="
 
 def render_sidebar(container,df):
     """Renderiza el panel de control lateral dentro de un contenedor con borde"""
-    # Slider que muestra porcentajes pero trabaja internamente con decimales
     risk_threshold_decimal = container.slider(
         "⚠️ Umbral de riesgo (%)",
         min_value=1.0, 
         max_value=100.0,
         value=80.0, 
         step=0.1,
-        format="%.1f%%",  # Esto muestra 80% en lugar de 0.8
+        format="%.1f%%",
         help="Probabilidad de falla a monitorear (80% = alto riesgo)"
     )/100
 
-    device_filter = container.multiselect("🔍 Filtrar dispositivos",
+    device_filter = container.multiselect("🔍 Filtrar Equipos",
                                           options=sorted(df['Dispositivo'].unique()),
                                           default=[],
-                                          help="Vacío = todos los dispositivos")
+                                          help="Vacío = todos los Equipos")
     
     return risk_threshold_decimal, device_filter
 
@@ -74,16 +73,17 @@ def render_tab1(rsf_model, intervals, features, df, available_devices, risk_thre
                         surv_func = rsf_model.predict_survival_function(X_pred)[0]
                         current_risk = (1 - np.interp(current_time, surv_func.x, surv_func.y, left=1.0, right=surv_func.y[-1])) * 100
 
-                        # Obtener el serial del dispositivo
                         device_data = df[df['Dispositivo'] == device]
                         serial = device_data['Serial_dispositivo'].iloc[0] if 'Serial_dispositivo' in device_data.columns and len(device_data) > 0 else "N/A"
+                        modelo = device_data['Modelo'].iloc[0] if 'Modelo' in device_data.columns and len(device_data) > 0 else "N/A"
 
                         maintenance_data.append({
                             'equipo': device,
                             'serial': serial,
+                            'modelo': modelo,
                             'tiempo_hasta_umbral': time_to_threshold,
                             'tiempo_hasta_umbral_dias': time_to_threshold / 24.0,
-                            'riesgo_actual': current_risk,  # Ya está en porcentaje
+                            'riesgo_actual': current_risk,
                             'total_alarmas': total_alarms,
                             'tiempo_transcurrido': current_time,
                             'tiempo_transcurrido_dias': current_time / 24.0
@@ -115,8 +115,9 @@ def render_tab1(rsf_model, intervals, features, df, available_devices, risk_thre
                         marker_color=color,
                         hovertemplate=f"<b>{row['equipo']}</b><br>" +
                                      f"Serial: {row['serial']}<br>" +
+                                     f"Modelo: {row['modelo']}<br>" +
                                      f"Tiempo hasta {int(risk_threshold*100)}% riesgo: {row['tiempo_hasta_umbral_dias']:.1f} días<br>" +
-                                     f"Riesgo actual: {row['riesgo_actual']:.1f}%<br>" +  # Ya está en porcentaje
+                                     f"Riesgo actual: {row['riesgo_actual']:.1f}%<br>" +
                                      f"Tiempo transcurrido: {row['tiempo_transcurrido_dias']:.1f} días<br>" +
                                      f"Total alarmas: {row['total_alarmas']}<extra></extra>"
                     ))
@@ -158,7 +159,6 @@ def _render_summary_col(rsf_model, intervals, maintenance_data, available_device
         if maintenance_data and len(maintenance_data) > 0:
             all_maintenance_df = pd.DataFrame(maintenance_data)
 
-            # Calcular métricas SOLO para los dispositivos con datos de mantenimiento
             critico = len(all_maintenance_df[all_maintenance_df['tiempo_hasta_umbral_dias'] < 7])
             alto = len(all_maintenance_df[(all_maintenance_df['tiempo_hasta_umbral_dias'] >= 7) &
                                         (all_maintenance_df['tiempo_hasta_umbral_dias'] < 30)])
@@ -217,9 +217,9 @@ def render_tab2(rsf_model, intervals, plot_devices, risk_threshold):
             fig.update_layout(
                 paper_bgcolor='#113738',
                 plot_bgcolor='#113738', 
-                height=450,
+                height=250,
                 xaxis_title="Días desde ahora",
-                yaxis_title="Probabilidad de Falla (%)",  # Agregar % al título
+                yaxis_title="Probabilidad de Falla (%)",
                 margin=dict(l=10, r=10, t=30, b=0),
                 legend=dict(orientation="h", yanchor="bottom", y=-1.22),
                 hovermode="closest",
@@ -227,8 +227,8 @@ def render_tab2(rsf_model, intervals, plot_devices, risk_threshold):
                 yaxis=dict(
                     title_font=dict(color='white',family='Manrope'), 
                     tickfont=dict(color='white',family='Manrope'),
-                    ticksuffix="%",  # Agregar % a los ticks del eje Y
-                    range=[0, 100]   # Rango de 0% a 100%
+                    ticksuffix="%",
+                    range=[0, 100]
                 )
             )
             st.plotly_chart(fig, width='stretch', config={'displayModeBar': True})
@@ -241,18 +241,15 @@ def render_tab2(rsf_model, intervals, plot_devices, risk_threshold):
 def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None, 
                 last_maintenance_dict=None, client_dict=None):
     """Renderiza la pestaña de recomendaciones de mantenimiento USANDO DISPOSITIVOS FILTRADOS"""
-    # Si no se proporcionan dispositivos disponibles, usar todos
     if available_devices is None:
         available_devices = sorted(df['Dispositivo'].unique())
     
-    # Inicializar diccionarios si no se proporcionan
     if last_maintenance_dict is None:
         last_maintenance_dict = {}
     if client_dict is None:
         client_dict = {}
     
     if rsf_model is not None and len(intervals) > 0:
-        # Recalcular maintenance_data SOLO para los dispositivos disponibles (filtrados)
         maintenance_data = []
         
         for device in available_devices:
@@ -270,16 +267,17 @@ def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None
                     surv_func = rsf_model.predict_survival_function(X_pred)[0]
                     current_risk = (1 - np.interp(current_time, surv_func.x, surv_func.y, left=1.0, right=surv_func.y[-1])) * 100
 
-                    # Obtener el serial del dispositivo
                     device_data = df[df['Dispositivo'] == device]
                     serial = device_data['Serial_dispositivo'].iloc[0] if 'Serial_dispositivo' in device_data.columns and len(device_data) > 0 else "N/A"
+                    modelo = device_data['Modelo'].iloc[0] if 'Modelo' in device_data.columns and len(device_data) > 0 else "N/A"
 
                     maintenance_data.append({
                         'equipo': device,
                         'serial': serial,
+                        'modelo': modelo,
                         'tiempo_hasta_umbral': time_to_threshold,
                         'tiempo_hasta_umbral_dias': time_to_threshold / 24.0,
-                        'riesgo_actual': current_risk,  # Ya está en porcentaje
+                        'riesgo_actual': current_risk,
                         'total_alarmas': total_alarms,
                         'tiempo_transcurrido': current_time,
                         'tiempo_transcurrido_dias': current_time / 24.0
@@ -319,7 +317,6 @@ def _render_maintenance_sections(critico_df, alto_df, planificar_df, df,
             return "Nunca"
         
         try:
-            # Si es una fecha reciente (últimos 30 días), mostrar "hace X días"
             from datetime import datetime
             days_ago = (datetime.now().date() - date.date()).days
             
@@ -340,14 +337,13 @@ def _render_maintenance_sections(critico_df, alto_df, planificar_df, df,
     
     def render_device_card(row, device_failures, last_maintenance_dict, client_dict, color_scheme):
         """Renderiza una tarjeta individual de dispositivo"""
-        # Obtener información de mantenimiento
         serial = row['serial']
         last_maintenance = last_maintenance_dict.get(serial)
         client = client_dict.get(serial, "No especificado")
+        modelo = row['modelo']
         
         maintenance_text = format_maintenance_date(last_maintenance)
         
-        # Configurar colores según la categoría
         colors = {
             'critico': {'bg': '#fef2f2', 'border': '#ef4444', 'text': '#dc2626'},
             'alto': {'bg': '#fffbeb', 'border': '#f59e0b', 'text': '#d97706'},
@@ -363,14 +359,14 @@ def _render_maintenance_sections(critico_df, alto_df, planificar_df, df,
             <strong>🔢 Serial: {row['serial']}</strong><br>
             <strong>🏢 Cliente: {client}</strong><br>
             <strong>🔧 Último mantenimiento: {maintenance_text}</strong><br>
+            <strong>📋 Modelo: {modelo}</strong><br>
             <strong>⏱️ {hours_to_days_hours(row['tiempo_hasta_umbral'])}</strong> hasta umbral<br>
-            <strong>📊 {row['riesgo_actual']:.1f}%</strong> riesgo actual<br>  <!-- Ya está en porcentaje -->
+            <strong>📊 {row['riesgo_actual']:.1f}%</strong> riesgo actual<br>
             <strong>🕐 {hours_to_days_hours(row['tiempo_transcurrido'])}</strong> transcurrido
             </p>
         </div>
         """, unsafe_allow_html=True)
 
-        # SIEMPRE mostrar el desplegable de fallas (aunque esté vacío)
         with st.expander("🔍 Fallas detectadas", expanded=False):
             if device_failures:
                 for failure in device_failures:
@@ -378,7 +374,6 @@ def _render_maintenance_sections(critico_df, alto_df, planificar_df, df,
             else:
                 st.info("No se detectaron fallas comunes específicas")
     
-    # Renderizar sección CRÍTICO
     if len(critico_df) > 0:
         with st.container(key="exp-rojo"):
             with st.expander(f"🚨 **MANTENIMIENTO INMEDIATO REQUERIDO** ({len(critico_df)} equipos)", expanded=True):
@@ -390,7 +385,6 @@ def _render_maintenance_sections(critico_df, alto_df, planificar_df, df,
                         device_failures = get_device_failures(df, row['equipo'])
                         render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'critico')
 
-    # Renderizar sección ALTO
     if len(alto_df) > 0:
         with st.container(key="exp-amarillo"):
             with st.expander(f"⚠️ **MANTENIMIENTO PRÓXIMO** ({len(alto_df)} equipos)", expanded=True):
@@ -402,7 +396,6 @@ def _render_maintenance_sections(critico_df, alto_df, planificar_df, df,
                         device_failures = get_device_failures(df, row['equipo'])
                         render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'alto')
 
-    # Renderizar sección PLANIFICAR
     if len(planificar_df) > 0:
         with st.container(key="exp-azul"):
             with st.expander(f"📅 **MANTENIMIENTO PLANIFICADO** ({len(planificar_df)} equipos)", expanded=True):
@@ -421,7 +414,6 @@ def render_user_info():
         st.sidebar.markdown(f"**👤 Usuario:** {st.session_state.get('username', 'N/A')}")
         st.sidebar.markdown(f"**🎯 Rol:** {st.session_state.get('user_role', 'N/A')}")
 
-
 def render_footer():
     last_update = round_down_10_minutes()
     st.markdown(
@@ -429,5 +421,4 @@ def render_footer():
         f"Última actualización: {last_update}"
         f"</div>", 
         unsafe_allow_html=True
-
     )
