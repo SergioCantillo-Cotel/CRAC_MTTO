@@ -2,10 +2,24 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import re
 from utils.alerts import get_device_failures, hours_to_days_hours
 from utils.model import calculate_time_to_threshold_risk
 from utils.time_monitor import round_down_10_minutes
 from viz.charts import predict_failure_risk_curves
+from utils.maintenance_data import format_maintenance_date
+
+def clean_device_name(device_name):
+    """
+    Elimina la parte del IP entre paréntesis del nombre del dispositivo
+    Ejemplo: "FANALCA-Aire APC 1 (172.19.1.46)" -> "FANALCA-Aire APC 1"
+    """
+    if pd.isna(device_name) or not isinstance(device_name, str):
+        return device_name
+    
+    # Eliminar contenido entre paréntesis (incluyendo los paréntesis)
+    cleaned_name = re.sub(r'\s*\([^)]*\)$', '', device_name).strip()
+    return cleaned_name
 
 def custom_metric(label, value, hint="", delta=None, color="#ffffff", bg_color="#0D2A2B"):
     """
@@ -43,14 +57,39 @@ def render_sidebar(container,df):
         help="Probabilidad de falla a monitorear (80% = alto riesgo)"
     )/100
 
-    device_filter = container.multiselect("🔍 Filtrar Equipos",
-                                          options=sorted(df['Dispositivo'].unique()),
+    # Limpiar nombres de dispositivos para mostrar en el multiselect
+    clean_device_names = [clean_device_name(device) for device in sorted(df['Dispositivo'].unique())]
+    device_mapping = {clean_device_name(device): device for device in df['Dispositivo'].unique()}
+    
+    device_filter_clean = container.multiselect("🔍 Filtrar Equipos",
+                                          options=clean_device_names,
                                           default=[],
                                           help="Vacío = todos los Equipos")
     
+    # Mapear de vuelta a los nombres originales para el filtro
+    device_filter = [device_mapping[clean_name] for clean_name in device_filter_clean]
+    
     return risk_threshold_decimal, device_filter
 
-def render_tab1(rsf_model, intervals, features, df, available_devices, risk_threshold):
+def _get_device_display_info(device, df, brand_dict=None, model_dict=None):
+    """Obtiene información unificada de dispositivo para display"""
+    device_data = df[df['Dispositivo'] == device]
+    if device_data.empty:
+        return "N/A", "N/A", "N/A"
+    
+    serial = device_data['Serial_dispositivo'].iloc[0] if 'Serial_dispositivo' in device_data.columns and len(device_data) > 0 else "N/A"
+    
+    # Priorizar modelo del CRM, si no existe usar el de BigQuery
+    model_crm = model_dict.get(serial, "N/A") if model_dict else "N/A"
+    model_bigquery = device_data['Modelo'].iloc[0] if 'Modelo' in device_data.columns and len(device_data) > 0 else "N/A"
+    model_display = model_crm if model_crm != "N/A" else model_bigquery
+    
+    brand = brand_dict.get(serial, "N/A") if brand_dict else "N/A"
+    
+    return serial, brand, model_display
+
+def render_tab1(rsf_model, intervals, features, df, available_devices, risk_threshold, 
+                brand_dict=None, model_dict=None):
     """Renderiza la pestaña de resumen"""
     priority_col, summary_col = st.columns([3,1])
 
@@ -73,14 +112,14 @@ def render_tab1(rsf_model, intervals, features, df, available_devices, risk_thre
                         surv_func = rsf_model.predict_survival_function(X_pred)[0]
                         current_risk = (1 - np.interp(current_time, surv_func.x, surv_func.y, left=1.0, right=surv_func.y[-1])) * 100
 
-                        device_data = df[df['Dispositivo'] == device]
-                        serial = device_data['Serial_dispositivo'].iloc[0] if 'Serial_dispositivo' in device_data.columns and len(device_data) > 0 else "N/A"
-                        modelo = device_data['Modelo'].iloc[0] if 'Modelo' in device_data.columns and len(device_data) > 0 else "N/A"
+                        serial, brand, model_display = _get_device_display_info(device, df, brand_dict, model_dict)
 
                         maintenance_data.append({
                             'equipo': device,
+                            'equipo_clean': clean_device_name(device),
                             'serial': serial,
-                            'modelo': modelo,
+                            'marca': brand,
+                            'modelo': model_display,
                             'tiempo_hasta_umbral': time_to_threshold,
                             'tiempo_hasta_umbral_dias': time_to_threshold / 24.0,
                             'riesgo_actual': current_risk,
@@ -107,14 +146,24 @@ def render_tab1(rsf_model, intervals, features, df, available_devices, risk_thre
                     else:
                         color = '#22c55e'
 
+                    # Crear etiqueta mejorada con marca y modelo usando nombre limpio
+                    device_label = f"{row['equipo_clean']}"
+                    if row['marca'] != "N/A" and row['modelo'] != "N/A":
+                        device_label = f"{row['equipo_clean']}"
+                    elif row['marca'] != "N/A":
+                        device_label = f"{row['equipo_clean']} ({row['marca']})"
+                    elif row['modelo'] != "N/A":
+                        device_label = f"{row['equipo_clean']} ({row['modelo']})"
+
                     fig_bar.add_trace(go.Bar(
-                        y=[row['equipo']],
+                        y=[device_label],
                         x=[row['tiempo_hasta_umbral_dias']],
                         orientation='h',
-                        name=row['equipo'],
+                        name=row['equipo_clean'],
                         marker_color=color,
-                        hovertemplate=f"<b>{row['equipo']}</b><br>" +
+                        hovertemplate=f"<b>{row['equipo_clean']}</b><br>" +
                                      f"Serial: {row['serial']}<br>" +
+                                     f"Marca: {row['marca']}<br>" +
                                      f"Modelo: {row['modelo']}<br>" +
                                      f"Tiempo hasta {int(risk_threshold*100)}% riesgo: {row['tiempo_hasta_umbral_dias']:.1f} días<br>" +
                                      f"Riesgo actual: {row['riesgo_actual']:.1f}%<br>" +
@@ -199,9 +248,10 @@ def _render_summary_col(rsf_model, intervals, maintenance_data, available_device
     else:
         st.info("Esperando datos del modelo")
 
-def render_tab2(rsf_model, intervals, plot_devices, risk_threshold):
+def render_tab2(rsf_model, intervals, plot_devices, risk_threshold, 
+                brand_dict=None, model_dict=None, df=None):
     """Renderiza la pestaña de proyección de riesgo"""
-    top_n = st.slider("📊 Número de equipos a mostrar",key="slider_tab2",
+    top_n = st.slider("❄️ Número de equipos a mostrar",key="slider_tab2",
                       min_value=0,
                       max_value=len(plot_devices),
                       value=min(5, len(plot_devices)))
@@ -210,9 +260,26 @@ def render_tab2(rsf_model, intervals, plot_devices, risk_threshold):
 
     if rsf_model is not None and len(plot_devices) > 0:
         with st.spinner("Calculando proyecciones de riesgo..."):
+            # Preparar etiquetas mejoradas con marca y modelo usando nombres limpios
+            device_labels = []
+            for device in plot_devices:
+                _, brand, model_display = _get_device_display_info(device, df, brand_dict, model_dict)
+                clean_name = clean_device_name(device)
+                
+                # Crear etiqueta mejorada
+                if brand != "N/A" and model_display != "N/A":
+                    label = f"{clean_name} ({brand} - {model_display})"
+                elif brand != "N/A":
+                    label = f"{clean_name} ({brand})"
+                elif model_display != "N/A":
+                    label = f"{clean_name} ({model_display})"
+                else:
+                    label = clean_name
+                device_labels.append(label)
+
             fig = predict_failure_risk_curves(rsf_model, intervals, plot_devices,
                                             risk_threshold=risk_threshold,
-                                            max_time=5000)
+                                            max_time=5000, device_labels=device_labels)
 
             fig.update_layout(
                 paper_bgcolor='#113738',
@@ -239,7 +306,7 @@ def render_tab2(rsf_model, intervals, plot_devices, risk_threshold):
             st.info("No hay dispositivos para mostrar con los filtros actuales")
 
 def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None, 
-                last_maintenance_dict=None, client_dict=None):
+                last_maintenance_dict=None, client_dict=None, brand_dict=None, model_dict=None):
     """Renderiza la pestaña de recomendaciones de mantenimiento USANDO DISPOSITIVOS FILTRADOS"""
     if available_devices is None:
         available_devices = sorted(df['Dispositivo'].unique())
@@ -248,6 +315,10 @@ def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None
         last_maintenance_dict = {}
     if client_dict is None:
         client_dict = {}
+    if brand_dict is None:
+        brand_dict = {}
+    if model_dict is None:
+        model_dict = {}
     
     if rsf_model is not None and len(intervals) > 0:
         maintenance_data = []
@@ -267,14 +338,14 @@ def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None
                     surv_func = rsf_model.predict_survival_function(X_pred)[0]
                     current_risk = (1 - np.interp(current_time, surv_func.x, surv_func.y, left=1.0, right=surv_func.y[-1])) * 100
 
-                    device_data = df[df['Dispositivo'] == device]
-                    serial = device_data['Serial_dispositivo'].iloc[0] if 'Serial_dispositivo' in device_data.columns and len(device_data) > 0 else "N/A"
-                    modelo = device_data['Modelo'].iloc[0] if 'Modelo' in device_data.columns and len(device_data) > 0 else "N/A"
+                    serial, brand, model_display = _get_device_display_info(device, df, brand_dict, model_dict)
 
                     maintenance_data.append({
                         'equipo': device,
+                        'equipo_clean': clean_device_name(device),
                         'serial': serial,
-                        'modelo': modelo,
+                        'marca': brand,
+                        'modelo': model_display,
                         'tiempo_hasta_umbral': time_to_threshold,
                         'tiempo_hasta_umbral_dias': time_to_threshold / 24.0,
                         'riesgo_actual': current_risk,
@@ -299,7 +370,7 @@ def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None
                 planificar_df = planificar_df.sort_values(['tiempo_hasta_umbral', 'riesgo_actual'], ascending=[True, False])
 
                 _render_maintenance_sections(critico_df, alto_df, planificar_df, df, 
-                                           last_maintenance_dict, client_dict)
+                                           last_maintenance_dict, client_dict, brand_dict, model_dict)
             else:
                 st.success("✅ No hay equipos que requieran mantenimiento inmediato")
         else:
@@ -308,104 +379,148 @@ def render_tab3(rsf_model, intervals, df, risk_threshold, available_devices=None
         st.info("El modelo predictivo proporcionará recomendaciones una vez entrenado")
 
 def _render_maintenance_sections(critico_df, alto_df, planificar_df, df, 
-                               last_maintenance_dict, client_dict):
-    """Renderiza las secciones de mantenimiento con información de último mantenimiento y cliente"""
+                               last_maintenance_dict, client_dict, brand_dict, model_dict):
+    """Renderiza las secciones de mantenimiento con información de último mantenimiento, cliente y marca"""
     
-    def format_maintenance_date(date):
-        """Formatea la fecha de mantenimiento de manera amigable"""
-        if pd.isna(date) or date is None:
-            return "Nunca"
-        
-        try:
-            from datetime import datetime
-            days_ago = (datetime.now().date() - date.date()).days
-            
-            if days_ago == 0:
-                return "Hoy"
-            elif days_ago == 1:
-                return "Ayer"
-            elif days_ago < 7:
-                return f"Hace {days_ago} días"
-            elif days_ago < 30:
-                weeks = days_ago // 7
-                return f"Hace {weeks} semana{'s' if weeks > 1 else ''}"
-            else:
-                return date.strftime("%d/%m/%Y")
-                
-        except:
-            return date.strftime("%d/%m/%Y") if hasattr(date, 'strftime') else str(date)
-    
-    def render_device_card(row, device_failures, last_maintenance_dict, client_dict, color_scheme):
-        """Renderiza una tarjeta individual de dispositivo"""
+    def render_device_card(row, device_failures, last_maintenance_dict, client_dict, brand_dict, model_dict, color_scheme):
+        """Renderiza una tarjeta individual de dispositivo CON EXPANDER PRINCIPAL MEJORADO"""
         serial = row['serial']
         last_maintenance = last_maintenance_dict.get(serial)
         client = client_dict.get(serial, "No especificado")
-        modelo = row['modelo']
+        brand = row['marca']
+        model_display = row['modelo']
         
         maintenance_text = format_maintenance_date(last_maintenance)
         
-        colors = {
-            'critico': {'bg': '#fef2f2', 'border': '#ef4444', 'text': '#dc2626'},
-            'alto': {'bg': '#fffbeb', 'border': '#f59e0b', 'text': '#d97706'},
-            'planificar': {'bg': '#f0f9ff', 'border': '#0ea5e9', 'text': '#0369a1'}
+        # Iconos y colores según la prioridad
+        priority_config = {
+            'critico': {
+                'icon': '❄️', 
+                'colors': {'bg': '#fef2f2', 'border': '#ef4444', 'text': '#dc2626'},
+                'status': 'CRÍTICO - Atención Inmediata'
+            },
+            'alto': {
+                'icon': '❄️', 
+                'colors': {'bg': '#fffbeb', 'border': '#f59e0b', 'text': '#d97706'},
+                'status': 'ALTO - Planificar Pronto'
+            },
+            'planificar': {
+                'icon': '❄️', 
+                'colors': {'bg': '#f0f9ff', 'border': '#0ea5e9', 'text': '#0369a1'},
+                'status': 'PLANIFICAR - Mantenimiento Programado'
+            }
         }
         
-        color_set = colors.get(color_scheme, colors['planificar'])
+        config = priority_config.get(color_scheme, priority_config['planificar'])
+        color_set = config['colors']
         
-        st.markdown(f"""
-        <div style='background-color: {color_set['bg']}; border-left: 5px solid {color_set['border']}; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-            <h4 style='margin: 0; color: {color_set['text']};'>{row['equipo']}</h4>
-            <p style='margin: 5px 0; font-size: 14px; color:#000000;'>
-            <strong>🔢 Serial: {row['serial']}</strong><br>
-            <strong>🏢 Cliente: {client}</strong><br>
-            <strong>🔧 Último mantenimiento: {maintenance_text}</strong><br>
-            <strong>📋 Modelo: {modelo}</strong><br>
-            <strong>⏱️ {hours_to_days_hours(row['tiempo_hasta_umbral'])}</strong> hasta umbral<br>
-            <strong>📊 {row['riesgo_actual']:.1f}%</strong> riesgo actual<br>
-            <strong>🕐 {hours_to_days_hours(row['tiempo_transcurrido'])}</strong> transcurrido
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        # EXPANDER PRINCIPAL con icono y estado usando nombre limpio
+        with st.expander(f"{config['icon']} {row['equipo_clean']}", expanded=False):
+            
+            # Tarjeta de información principal
+            st.markdown(f"""
+            <div style='background-color: {color_set['bg']}; border-left: 5px solid {color_set['border']}; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                <p style='margin: 0px 0; font-size: 12px; color:#000000;'>
+                <strong>🔢 Serial:</strong> {row['serial']}<br>
+                <strong>🏢 Cliente:</strong> {client}<br>
+                <strong>🏷️ Marca:</strong> {brand}<br>
+                <strong>📋 Modelo:</strong> {model_display}<br>
+                <strong>🔧 Último mantenimiento:</strong> {maintenance_text}<br>
+                <strong>⏱️ Tiempo hasta umbral:</strong> {hours_to_days_hours(row['tiempo_hasta_umbral'])}<br>
+                <strong>📊 Riesgo actual:</strong> {row['riesgo_actual']:.1f}%<br>
+                <strong>🕐 Tiempo transcurrido:</strong> {hours_to_days_hours(row['tiempo_transcurrido'])}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
 
-        with st.expander("🔍 Fallas detectadas", expanded=False):
-            if device_failures:
-                for failure in device_failures:
-                    st.write(f"• {failure}")
-            else:
-                st.info("No se detectaron fallas comunes específicas")
+            # EXPANDER SECUNDARIO para análisis técnico
+            with st.expander("🔍 Análisis Técnico y Recomendaciones", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.text("Fallas Detectadas")
+                    if device_failures:
+                        for failure in device_failures:
+                            st.write(f"• {failure}")
+                    else:
+                        st.info("✅ No se detectaron fallas críticas")
+                        
+                with col2:
+                    st.text("Acciones Recomendadas")
+                    if device_failures:
+                        recommendations = []
+                        for failure in device_failures:
+                            if "refrigerante" in failure.lower():
+                                recommendations.extend([
+                                    "• Verificar niveles de refrigerante",
+                                    "• Inspeccionar posibles fugas",
+                                    "• Revisar válvulas de expansión"
+                                ])
+                            if "compresor" in failure.lower():
+                                recommendations.extend([
+                                    "• Chequear motor del compresor",
+                                    "• Verificar arrancadores",
+                                    "• Revisar presiones de trabajo"
+                                ])
+                            if "humedad" in failure.lower():
+                                recommendations.extend([
+                                    "• Calibrar sensores de humedad",
+                                    "• Limpiar bandejas de drenaje",
+                                    "• Verificar filtros de aire"
+                                ])
+                        
+                        # Eliminar duplicados
+                        recommendations = list(dict.fromkeys(recommendations))
+                        for rec in recommendations:
+                            st.write(rec)
+                    else:
+                        st.write("• Limpieza general de componentes")
+                        st.write("• Verificación de sistemas eléctricos")
+                        st.write("• Calibración de sensores")
+                        st.write("• Revisión preventiva estándar")
     
+    # MANTENER LA DISTRIBUCIÓN ORIGINAL CON EXPANDERS DE PRIORIDAD Y 2 COLUMNAS POR FILA
     if len(critico_df) > 0:
         with st.container(key="exp-rojo"):
-            with st.expander(f"🚨 **MANTENIMIENTO INMEDIATO REQUERIDO** ({len(critico_df)} equipos)", expanded=True):
+            with st.expander(f"🚨 **MANTENIMIENTO INMEDIATO REQUERIDO**: {len(critico_df)} equipo(s)", expanded=True):
                 n_criticos = len(critico_df)
-                crit_cols = st.columns(min(3, n_criticos))
-
-                for idx, (_, row) in enumerate(critico_df.iterrows()):
-                    with crit_cols[idx % len(crit_cols)]:
-                        device_failures = get_device_failures(df, row['equipo'])
-                        render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'critico')
+                # Crear filas de 2 columnas
+                for i in range(0, n_criticos, 2):
+                    cols = st.columns(2)
+                    for j in range(2):
+                        if i + j < n_criticos:
+                            with cols[j]:
+                                row = critico_df.iloc[i + j]
+                                device_failures = get_device_failures(df, row['equipo'])
+                                render_device_card(row, device_failures, last_maintenance_dict, client_dict, brand_dict, model_dict, 'critico')
 
     if len(alto_df) > 0:
         with st.container(key="exp-amarillo"):
-            with st.expander(f"⚠️ **MANTENIMIENTO PRÓXIMO** ({len(alto_df)} equipos)", expanded=True):
+            with st.expander(f"⚠️ **MANTENIMIENTO PRÓXIMO**: {len(alto_df)} equipo(s)", expanded=True):
                 n_altos = len(alto_df)
-                alto_cols = st.columns(min(3, n_altos))
-
-                for idx, (_, row) in enumerate(alto_df.iterrows()):
-                    with alto_cols[idx % len(alto_cols)]:
-                        device_failures = get_device_failures(df, row['equipo'])
-                        render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'alto')
+                # Crear filas de 2 columnas
+                for i in range(0, n_altos, 2):
+                    cols = st.columns(2)
+                    for j in range(2):
+                        if i + j < n_altos:
+                            with cols[j]:
+                                row = alto_df.iloc[i + j]
+                                device_failures = get_device_failures(df, row['equipo'])
+                                render_device_card(row, device_failures, last_maintenance_dict, client_dict, brand_dict, model_dict, 'alto')
 
     if len(planificar_df) > 0:
         with st.container(key="exp-azul"):
-            with st.expander(f"📅 **MANTENIMIENTO PLANIFICADO** ({len(planificar_df)} equipos)", expanded=True):
+            with st.expander(f"📅 **MANTENIMIENTO PLANIFICADO**: {len(planificar_df)} equipo(s)", expanded=True):
                 n_planificar = len(planificar_df)
-                plan_cols = st.columns(min(3, n_planificar))
-
-                for idx, (_, row) in enumerate(planificar_df.iterrows()):
-                    with plan_cols[idx % len(plan_cols)]:
-                        device_failures = get_device_failures(df, row['equipo'])
-                        render_device_card(row, device_failures, last_maintenance_dict, client_dict, 'planificar')
+                # Crear filas de 2 columnas
+                for i in range(0, n_planificar, 2):
+                    cols = st.columns(2)
+                    for j in range(2):
+                        if i + j < n_planificar:
+                            with cols[j]:
+                                row = planificar_df.iloc[i + j]
+                                device_failures = get_device_failures(df, row['equipo'])
+                                render_device_card(row, device_failures, last_maintenance_dict, client_dict, brand_dict, model_dict, 'planificar')
 
 def render_user_info():
     """Renderiza información del usuario en el sidebar"""

@@ -66,7 +66,6 @@ def read_bq_alarms_safe(credentials):
         
         query_job = client.query(sql_query)
         results = query_job.result()
-        
         data = []
         for row in results:
             data.append({

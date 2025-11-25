@@ -181,6 +181,13 @@ class CRMClient:
         if response_data and 'data' in response_data:
             # Convertir a DataFrame
             df = pd.DataFrame(response_data['data'])
+            
+            # Normalizar nombres de columnas para incluir marca si está disponible
+            expected_columns = ['serial', 'hora_salida', 'cliente', 'marca']
+            available_columns = df.columns.tolist()
+            
+            print(f"Columnas disponibles en respuesta CRM: {available_columns}")
+            
             return df
         else:
             print("No se pudieron obtener datos válidos")

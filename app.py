@@ -11,7 +11,7 @@ from utils.style_loader import load_custom_css
 from utils.bigquery_connector import bigquery_auth, read_bq_alarms_safe, autorefresh, completar_seriales_faltantes
 from viz.components import render_sidebar, render_tab1, render_tab2, render_tab3, render_footer
 from viz.auth_config import init_session_state, render_sidebar_login, render_sidebar_user_info, require_auth
-from utils.maintenance_data import load_maintenance_data, get_last_maintenance_by_serial, get_client_by_serial
+from utils.maintenance_data import load_maintenance_data, get_maintenance_metadata
 import streamlit.components.v1 as components
 
 
@@ -146,13 +146,13 @@ def render_authenticated_interface():
         df_user = load_and_process_data(df_raw_user_processed)
 
     # -----------------------
-    # Cargar datos de mantenimiento
+    # Cargar datos de mantenimiento - VERSIÓN OPTIMIZADA
     # -----------------------
     with st.spinner("📋 Cargando historial de mantenimientos..."):
         seriales = df_raw_user_processed['Serial_dispositivo'].unique()
         df_mttos = load_maintenance_data(seriales)
-        last_maintenance_dict = get_last_maintenance_by_serial(df_mttos)
-        client_dict = get_client_by_serial(df_mttos)
+        # Usar la nueva función unificada para obtener todos los metadatos
+        last_maintenance_dict, client_dict, brand_dict, model_dict = get_maintenance_metadata(df_mttos)
 
     container = st.sidebar.expander(f"Panel de Control",expanded=True,icon="🎛️")
     risk_threshold, device_filter = render_sidebar(container, df_user)
@@ -173,15 +173,18 @@ def render_authenticated_interface():
     # Renderizar cada pestaña usando el MISMO MODELO (entrenado con todos los datos)
     # pero mostrando solo los datos del usuario
     with tab1:
-        render_tab1(rsf_model, intervals, features, df_user, available_devices, risk_threshold)
+        render_tab1(rsf_model, intervals, features, df_user, available_devices, risk_threshold, 
+                   brand_dict, model_dict)
         render_footer()
 
     with tab2:
-        render_tab2(rsf_model, intervals, available_devices, risk_threshold)
+        render_tab2(rsf_model, intervals, available_devices, risk_threshold, 
+                   brand_dict, model_dict, df_user)
         render_footer()
 
     with tab3:
-        render_tab3(rsf_model, intervals, df_user, risk_threshold, available_devices, last_maintenance_dict, client_dict)
+        render_tab3(rsf_model, intervals, df_user, risk_threshold, available_devices, 
+                   last_maintenance_dict, client_dict, brand_dict, model_dict)
         render_footer()
 
 def main():

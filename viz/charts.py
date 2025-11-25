@@ -4,13 +4,17 @@ import numpy as np
 import pandas as pd
 from utils.model import calculate_time_to_threshold_risk
 
-def predict_failure_risk_curves(rsf, intervals, devices, risk_threshold=0.8, max_time=5000, n_points=5000):
+def predict_failure_risk_curves(rsf, intervals, devices, risk_threshold=0.8, max_time=5000, n_points=5000, device_labels=None):
     FEATURES = ['total_alarms', 'alarms_last_24h', 'time_since_last_alarm_h']
 
     fig = go.Figure()
     colors = px.colors.qualitative.Plotly
 
-    for i, device in enumerate(devices):
+    # Usar etiquetas personalizadas si se proporcionan, de lo contrario usar nombres de dispositivos
+    if device_labels is None:
+        device_labels = devices
+
+    for i, (device, device_label) in enumerate(zip(devices, device_labels)):
         device_intervals = intervals[intervals['unit'] == device]
         if len(device_intervals) == 0:
             continue
@@ -53,11 +57,11 @@ def predict_failure_risk_curves(rsf, intervals, devices, risk_threshold=0.8, max
             x=plot_times_days,
             y=failure_risk_percent,
             mode='lines',
-            name=f"{device}",
+            name=device_label,  # Usar la etiqueta mejorada
             line=dict(width=2.5, color=color),
             showlegend=False,
             hovertemplate=(
-                f"<b>{device}</b><br>"
+                f"<b>{device_label}</b><br>"  # Usar etiqueta mejorada en hover
                 f"{time_info}<br>"
                 "Riesgo de falla: %{y:.1f}%<br>"
                 "Tiempo transcurrido desde ultima falla: <b>%{customdata:.1f} días</b>"
@@ -72,9 +76,9 @@ def predict_failure_risk_curves(rsf, intervals, devices, risk_threshold=0.8, max
             mode='markers',
             marker=dict(size=12, color=color, symbol='diamond', line=dict(width=2, color='white')),
             showlegend=False,
-            name=f"{device} - Actual",
+            name=f"{device_label} - Actual",
             hovertemplate=(
-                f"<b>{device} - AHORA</b><br>"
+                f"<b>{device_label} - AHORA</b><br>"
                 f"{time_info}<br>"
                 f"Tiempo transcurrido: {elapsed_days:.1f} días<br>"
                 f"<b>Riesgo actual: {current_risk_percent:.1f}%</b>"
@@ -93,8 +97,8 @@ def predict_failure_risk_curves(rsf, intervals, devices, risk_threshold=0.8, max
                 mode='markers',
                 marker=dict(size=10, color=color, symbol='x', line=dict(width=2, color='black')),
                 showlegend=False,
-                name=f"{device} - Umbral {int(risk_threshold*100)}%",
-                hovertemplate=f"<b>{device}</b><br>Tiempo hasta {int(risk_threshold*100)}% riesgo: {threshold_x_days:.1f} días<br>Riesgo: {threshold_y:.1f}%<extra></extra>"
+                name=f"{device_label} - Umbral {int(risk_threshold*100)}%",
+                hovertemplate=f"<b>{device_label}</b><br>Tiempo hasta {int(risk_threshold*100)}% riesgo: {threshold_x_days:.1f} días<br>Riesgo: {threshold_y:.1f}%<extra></extra>"
             ))
 
     # Convertir el umbral a porcentaje para la línea horizontal
