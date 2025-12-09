@@ -159,7 +159,7 @@ def render_authenticated_interface():
     # -----------------------
     available_devices = sorted(df_user['Dispositivo'].unique())
     if device_filter:
-        available_devices = [d for d in available_devices if d in device_filter]
+        available_devices = device_filter.copy()
 
     # Renderizar cada pestaña usando el MISMO MODELO (entrenado con todos los datos)
     # pero mostrando solo los datos del usuario
