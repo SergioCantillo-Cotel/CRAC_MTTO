@@ -86,6 +86,36 @@ def read_bq_alarms_safe(credentials):
             if 'Fecha_Resolucion' in df.columns:
                 df['Fecha_Resolucion'] = pd.to_datetime(df['Fecha_Resolucion'], errors='coerce')
             
+            # ===== APLICAR MAPEO DE NOMBRES DESDE equipos.py =====
+            # Obtener el diccionario nombre -> serial
+            equipo_serial_mapping = get_serials()
+            
+            # Crear un diccionario IP -> Nombre completo
+            # Extrayendo la IP del nombre entre paréntesis
+            ip_nombre_mapping = {}
+            for nombre_completo, serial in equipo_serial_mapping.items():
+                # Buscar la IP entre paréntesis, ej: "(10.102.148.10)"
+                if '(' in nombre_completo and ')' in nombre_completo:
+                    ip = nombre_completo.split('(')[-1].split(')')[0].strip()
+                    ip_nombre_mapping[ip] = nombre_completo
+            
+            # Aplicar el mapeo: buscar si la IP actual está en el mapeo
+            def aplicar_mapeo_ip(dispositivo_actual):
+                dispositivo_str = str(dispositivo_actual).strip()
+                # Si la IP está en el mapeo, devolver el nombre completo
+                if dispositivo_str in ip_nombre_mapping:
+                    return ip_nombre_mapping[dispositivo_str]
+                # Si no, mantener el valor original
+                return dispositivo_actual
+            
+            df['Dispositivo'] = df['Dispositivo'].apply(aplicar_mapeo_ip)
+            
+            # DEBUG: Ver qué IPs no tienen mapeo
+            # ips_sin_mapeo = df[~df['Dispositivo'].str.contains('|'.join(equipo_serial_mapping.keys()), na=False)]['Dispositivo'].unique()
+            # if len(ips_sin_mapeo) > 0:
+            #     st.warning(f"IPs sin mapeo: {ips_sin_mapeo}")
+            # ======================================================
+            
             # Filtrar por fecha localmente
             #cutoff_date = datetime.now() - timedelta(days=days_back)
             #df = df[df['Fecha_alarma'] >= cutoff_date].copy()  
@@ -142,7 +172,8 @@ def completar_seriales_faltantes(df, nombre_columna='Dispositivo', serial_column
             'EAFIT': ['EAFIT'],
             'Metro': ['Metro'],
             'UTP': ['UTP'],
-            'UNICAUCA': ['UNICAUCA']
+            'UNICAUCA': ['UNICAUCA'],
+            'FVL':['FVL']
         }
         
         for key, value in EQUIPO_SERIAL_MAPPING.items():

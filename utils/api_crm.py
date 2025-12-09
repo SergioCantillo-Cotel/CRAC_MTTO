@@ -119,12 +119,55 @@ class CRMClient:
             return self.refresh_access_token()
         return True
     
-    def get_equipos_info(self, seriales: List[str]) -> Optional[Dict]:
+    def generar_variantes_serial(self, serial: str, usar_wildcards: bool = True) -> List[str]:
+        """
+        Genera variantes de un serial para búsqueda flexible
+        
+        Args:
+            serial: Serial base (ej: "K2212D11349")
+            usar_wildcards: Si True, agrega wildcards tipo SQL LIKE
+            
+        Returns:
+            Lista de variantes a buscar
+        """
+        if not serial:
+            return []
+        
+        serial_limpio = str(serial).strip().upper()
+        variantes = []
+        
+        if usar_wildcards:
+            # Variantes con wildcards (si el CRM las soporta)
+            variantes.append(f"%{serial_limpio}%")  # Cualquier posición
+            variantes.append(f"{serial_limpio}%")   # Al inicio
+            variantes.append(f"%{serial_limpio}")   # Al final
+        
+        # Variantes sin wildcards
+        variantes.append(serial_limpio)  # Exacto
+        
+        # Con "0" al inicio si no lo tiene
+        if not serial_limpio.startswith('0'):
+            variantes.append(f"0{serial_limpio}")
+            if usar_wildcards:
+                variantes.append(f"%0{serial_limpio}%")
+        
+        # Sin "0" al inicio si lo tiene
+        if serial_limpio.startswith('0') and len(serial_limpio) > 1:
+            sin_cero = serial_limpio[1:]
+            variantes.append(sin_cero)
+            if usar_wildcards:
+                variantes.append(f"%{sin_cero}%")
+        
+        # Eliminar duplicados manteniendo orden
+        return list(dict.fromkeys(variantes))
+    
+    def get_equipos_info(self, seriales: List[str], usar_wildcards: bool = False) -> Optional[Dict]:
         """
         Obtiene información de equipos por sus números de serie
         
         Args:
             seriales: Lista de números de serie a consultar
+            usar_wildcards: Si True, genera variantes con wildcards para cada serial
             
         Returns:
             Dict con la respuesta de la API o None si hay error
@@ -142,12 +185,27 @@ class CRMClient:
         else:
             seriales_list = list(seriales)
         
+        # Si usar_wildcards está habilitado, generar variantes
+        if usar_wildcards:
+            seriales_expandidos = []
+            for serial in seriales_list:
+                variantes = self.generar_variantes_serial(serial, usar_wildcards=True)
+                seriales_expandidos.extend(variantes)
+            seriales_list = seriales_expandidos
+        else:
+            # Solo generar variantes básicas (con/sin "0")
+            seriales_expandidos = []
+            for serial in seriales_list:
+                variantes = self.generar_variantes_serial(serial, usar_wildcards=False)
+                seriales_expandidos.extend(variantes)
+            seriales_list = seriales_expandidos
+        
         data = {
             "seriales": seriales_list
         }
         
         try:
-            print(f"Consultando seriales: {seriales_list}")  # Debug
+            print(f"🔍 Consultando {len(seriales_list)} variantes de seriales en el CRM...")
             response = requests.post(
                 self.equipos_url,
                 json=data,
@@ -155,9 +213,12 @@ class CRMClient:
                 verify=False
             )
             
-            print(f"Respuesta HTTP: {response.status_code}")  # Debug
+            print(f"Respuesta HTTP: {response.status_code}")
             if response.status_code == 200:
-                return response.json()
+                resultado = response.json()
+                if resultado and 'data' in resultado:
+                    print(f"✅ Encontrados {len(resultado['data'])} ODS en el CRM")
+                return resultado
             else:
                 print(f"Error en la consulta: {response.status_code} - {response.text}")
                 return None
@@ -166,31 +227,60 @@ class CRMClient:
             print(f"Excepción en la consulta: {e}")
             return None
     
-    def get_equipos_dataframe(self, seriales: List[str]) -> Optional[pd.DataFrame]:
+    def buscar_serial_flexible(self, serial: str) -> Optional[Dict]:
+        """
+        Busca un serial específico usando búsqueda flexible
+        Prueba primero sin wildcards, luego con wildcards si no encuentra
+        
+        Args:
+            serial: Serial a buscar
+            
+        Returns:
+            Dict con información del equipo o None
+        """
+        # Primero intentar búsqueda exacta (con variantes básicas)
+        resultado = self.get_equipos_info([serial], usar_wildcards=False)
+        
+        if resultado and resultado.get('data'):
+            return resultado
+        
+        # Si no encuentra, intentar con wildcards
+        print(f"⚠️ No se encontró '{serial}' con búsqueda exacta, intentando con wildcards...")
+        resultado = self.get_equipos_info([serial], usar_wildcards=True)
+        
+        return resultado
+    
+    def get_equipos_dataframe(self, seriales: List[str], usar_wildcards: bool = False) -> Optional[pd.DataFrame]:
         """
         Obtiene información de equipos y la convierte a DataFrame
         
         Args:
             seriales: Lista de números de serie a consultar
+            usar_wildcards: Si True, usa búsqueda con wildcards
             
         Returns:
             DataFrame con la información o None si hay error
         """
-        response_data = self.get_equipos_info(seriales)
+        response_data = self.get_equipos_info(seriales, usar_wildcards=usar_wildcards)
         
         if response_data and 'data' in response_data:
             # Convertir a DataFrame
             df = pd.DataFrame(response_data['data'])
             
             # Normalizar nombres de columnas para incluir marca si está disponible
-            expected_columns = ['serial', 'hora_salida', 'cliente', 'marca']
+            expected_columns = ['serial', 'hora_salida', 'cliente', 'marca', 'modelo']
             available_columns = df.columns.tolist()
             
-            print(f"Columnas disponibles en respuesta CRM: {available_columns}")
+            print(f"📋 Columnas disponibles en respuesta CRM: {available_columns}")
+            
+            # Eliminar duplicados por serial (mantener el primero)
+            if 'serial' in df.columns:
+                df = df.drop_duplicates(subset=['serial'], keep='first')
+                print(f"✅ DataFrame con {len(df)} equipos únicos")
             
             return df
         else:
-            print("No se pudieron obtener datos válidos")
+            print("No se pudieron obtener datos válidos del CRM")
             return None
 
 # Función de conveniencia para uso rápido
@@ -204,8 +294,8 @@ def crear_cliente_crm() -> CRMClient:
     
     # Obtener token inicial
     if client.get_access_token():
-        print("Cliente CRM creado y autenticado exitosamente")
+        print("✅ Cliente CRM creado y autenticado exitosamente")
     else:
-        print("Error al crear cliente CRM")
+        print("❌ Error al crear cliente CRM")
     
     return client

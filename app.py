@@ -103,15 +103,6 @@ def render_authenticated_interface():
             with st.spinner("📡 Conectando con la base de datos..."):
                 # PRIMERO: Obtener TODOS los datos sin filtrar
                 df_raw_complete = read_bq_alarms_safe(credentials)
-                # Temporal
-                dispositivos_excluir = [
-                    '10.102.148.11', '10.102.148.13', '10.102.148.16', '10.102.148.10',
-                    '10.102.148.19', '10.102.148.12', '10.102.148.20', '10.102.148.15',
-                    '10.102.148.21', '10.102.148.17', '10.102.148.18', '10.102.148.14',
-                    '10.102.148.23', '10.102.148.22'
-                ]
-        
-                df_raw_complete = df_raw_complete[~df_raw_complete['Dispositivo'].isin(dispositivos_excluir)]
                 
                 # LUEGO: Filtrar por usuario para visualización
                 cliente = st.session_state.user_info['name']

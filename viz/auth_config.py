@@ -22,6 +22,12 @@ USERS = {
         "name": "UNICAUCA",
         "role": "Operador",
         "cliente": "UNIVERSIDAD DEL CAUCA"
+    },
+    "FVL": {
+        "password": "FVL2025!",  # Cambia esta contraseña
+        "name": "FVL",
+        "role": "Operador",
+        "cliente": "FUNDACIÓN VALLE DEL LILI"
     }
 }
 
